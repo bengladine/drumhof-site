@@ -1,4 +1,4 @@
-﻿
+
 
 body {
   font-family: Arial, sans-serif;
@@ -9,7 +9,7 @@ body {
   color: #333;
 }
 header {
-  background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url('./img/banner.png') center/cover no-repeat;
+  background: linear-gradient(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.1)), url('./img/banner.webp') center/cover no-repeat;
   color: white;
   padding: 8rem 1rem;
   text-align: center;
@@ -93,4 +93,13 @@ footer {
   header {
     background-position: 40% 30%;
   }
+}
+
+.faq h3 {
+  font-size: 1.05rem;
+  margin: 1.2rem 0 0.3rem;
+  color: #1e1e1e;
+}
+.faq p {
+  margin-top: 0;
 }
