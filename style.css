@@ -103,3 +103,19 @@ footer {
 .faq p {
   margin-top: 0;
 }
+
+html {
+  scroll-behavior: smooth;
+}
+a.button {
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  background-color: #1e1e1e;
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 6px;
+}
+a.button:hover {
+  background-color: #444;
+}
