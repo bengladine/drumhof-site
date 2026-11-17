@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gratis drumcursus voor beginners – Drumhof Gent</title>
+<meta name="description" content="Leer drummen vanaf nul: stokken vasthouden, houding, je eerste rockbeat en fills, met noten die je kan beluisteren. Gratis beginnerscursus van Drumhof, drumlessen in Gent.">
+<meta name="author" content="Ben – Drumhof">
+<link rel="canonical" href="https://drumhof.com/cursus/">
+<meta property="og:title" content="Gratis drumcursus voor beginners – Drumhof">
+<meta property="og:description" content="Stokken vasthouden, houding en je eerste rockbeat, met noten die je kan beluisteren.">
+<meta property="og:image" content="https://drumhof.com/img/banner.jpg">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://drumhof.com/cursus/">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/img/favicon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<style>
+  :root {
+    --bg: #f8f8f8; --card: #fff; --ink: #1e1e1e; --muted: #6b6860;
+    --accent: #e4572e; --ok: #2e9e5b; --line: #e3dfd6; --brass: #e9c46a; --drum: #cfd8dc; --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 17px/1.6 Arial, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 14px 64px; }
+  h1 { font-size: 1.7rem; margin: 8px 0 4px; }
+  h2 { font-size: 1.35rem; margin: 0 0 10px; }
+  h3 { font-size: 1.05rem; margin: 18px 0 6px; }
+  section { background: var(--card); border-radius: var(--radius); padding: 18px 16px;
+            margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); scroll-margin-top: 64px; }
+  .bar { position: sticky; top: 0; z-index: 5; background: var(--bg); display: flex;
+         justify-content: space-between; align-items: center; padding: 10px 0; }
+  .lang button { font: inherit; font-weight: 700; padding: 6px 12px; border-radius: 10px;
+                 border: 2px solid var(--ink); background: #fff; color: var(--ink); }
+  .lang button.on { background: var(--ink); color: #fff; }
+  .sub { color: var(--muted); margin: 0 0 12px; }
+  nav ol { margin: 0; padding-left: 22px; columns: 2; column-gap: 24px; }
+  nav a { color: var(--ink); }
+  .short { background: #fff4e6; border-left: 5px solid var(--accent); border-radius: 10px;
+           padding: 10px 14px; margin: 0 0 14px; }
+  .short b { color: var(--accent); }
+  .cta { margin-top: 14px; padding: 14px; border-radius: 10px; background: #1e1e1e; color: #fff; }
+  .cta a { color: #fff; font-weight: 700; }
+  .home { color: var(--ink); font-weight: 800; text-decoration: none; letter-spacing: 1px; }
+  body:not(.teach) .teacher { display: none; }
+  footer { text-align: center; color: var(--muted); font-size: .9rem; padding: 0 0 32px; }
+  .teacher { background: #eef3f7; border-radius: 10px; padding: 10px 14px; margin-top: 14px; font-size: .95rem; }
+  .goal { font-weight: 700; }
+  table { border-collapse: collapse; width: 100%; font-size: .95rem; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  svg.pic { display: block; width: 100%; height: auto; margin: 8px 0 14px; }
+  svg text { font: 13px system-ui, sans-serif; fill: var(--ink); }
+  svg .lbl-s { font-size: 11px; fill: var(--muted); }
+  svg .hl { fill: var(--accent); font-weight: 700; }
+  ol.ex { padding-left: 0; list-style: none; counter-reset: ex; }
+  ol.ex > li { counter-increment: ex; border-top: 1px solid var(--line); padding: 12px 0; }
+  ol.ex > li::before { content: counter(ex); display: inline-grid; place-items: center; width: 28px; height: 28px;
+                       border-radius: 50%; background: var(--ink); color: #fff; font-weight: 700; margin-right: 8px; }
+  .gs { margin: 8px 0 0; }
+  .gs iframe { width: 100%; height: 175px; border: 0; display: block; background: #fff; }
+  .gs a { color: var(--muted); font-size: .85rem; }
+  .tempo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 4px; }
+  .tempo .bpm { font-weight: 800; min-width: 84px; }
+  .tempo input[type=range] { flex: 1; min-width: 120px; accent-color: var(--accent); }
+  .tempo button { font: inherit; font-weight: 700; padding: 4px 10px; border-radius: 8px; border: 2px solid var(--ink); background: #fff; color: var(--ink); }
+  .tempo .target { color: var(--muted); font-size: .85rem; }
+  .lang button.hand.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .done-when { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: #e8f5ec; }
+  body:not(.en) .en, body.en .nl { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+<div class="bar">
+  <a class="home" href="/" data-keep>← Drumhof</a>
+  <span class="lang"><button class="hand" data-keep><span class="nl">Linkshandig</span><span class="en">Left-handed</span></button> <button data-l="nl">NL</button> <button data-l="en">EN</button></span>
+</div>
+
+<h1><span class="nl">Gratis drumcursus voor beginners</span><span class="en">Free beginner drum course</span></h1>
+<p class="sub nl">Leer drummen vanaf nul: eerst de basis, daarna les per les. Druk op ▶ in de noten om mee te spelen. Dit is hoe ik mijn leerlingen bij <a href="/" data-keep>Drumhof</a> in Gent laat starten.</p>
+<p class="sub en">Learn to drum from scratch: first the basics, then lesson by lesson. Press ▶ in the notation to play along. This is how my students at <a href="/en.html" data-keep>Drumhof</a> in Ghent get started.</p>
+
+<section id="inhoud">
+  <h2><span class="nl">Inhoud</span><span class="en">Contents</span></h2>
+  <nav><ol>
+    <li><a href="#drumstel"><span class="nl">Het drumstel</span><span class="en">The drum kit</span></a></li>
+    <li><a href="#houding"><span class="nl">Houding</span><span class="en">Posture</span></a></li>
+    <li><a href="#stokken"><span class="nl">Stokken vasthouden</span><span class="en">Holding the sticks</span></a></li>
+    <li><a href="#handslag"><span class="nl">De slag met de hand</span><span class="en">The hand stroke</span></a></li>
+    <li><a href="#voetslag"><span class="nl">De slag met de voet</span><span class="en">The foot stroke</span></a></li>
+    <li><a href="#notenbalk"><span class="nl">Notenbalk lezen</span><span class="en">Reading the staff</span></a></li>
+    <li><a href="#bekkens"><span class="nl">Bekkens: wanneer welke?</span><span class="en">Cymbals: which one when?</span></a></li>
+    <li><a href="#les-1"><span class="nl">Les 1: één beat, stap per stap</span><span class="en">Lesson 1: one beat, step by step</span></a></li>
+    <li><a href="#les-2"><span class="nl">Les 2: de basdrum verplaatsen</span><span class="en">Lesson 2: moving the bass drum</span></a></li>
+    <li><a href="#les-3"><span class="nl">Les 3: achtste noten op de hi-hat</span><span class="en">Lesson 3: eighth notes on the hi-hat</span></a></li>
+  </ol></nav>
+</section>
+
+<!-- ============ DRUMSTEL ============ -->
+<section id="drumstel">
+  <h2><span class="nl">Het drumstel</span><span class="en">The drum kit</span></h2>
+  <p class="short nl"><b>Kort:</b> trommels maken een ‘boem’ of ‘tak’, bekkens maken een ‘tsss’. Je voeten spelen de basdrum en de hi-hat. Je handen spelen de rest.</p>
+  <p class="short en"><b>In short:</b> drums go ‘boom’ or ‘tak’, cymbals go ‘tsss’. Your feet play the bass drum and the hi-hat. Your hands play the rest.</p>
+
+  <svg class="pic kit" viewBox="0 0 400 290" role="img" aria-label="Drumkit seen from above">
+    <g class="mir">
+    <circle cx="92" cy="78" r="40" fill="var(--brass)" stroke="#b8902e" stroke-width="2"/>
+    <circle cx="92" cy="78" r="6" fill="#b8902e"/>
+    <circle cx="322" cy="105" r="48" fill="var(--brass)" stroke="#b8902e" stroke-width="2"/>
+    <circle cx="322" cy="105" r="13" fill="#d8b04f" stroke="#b8902e"/>
+    <circle cx="70" cy="170" r="30" fill="var(--brass)" stroke="#b8902e" stroke-width="2"/>
+    <circle cx="70" cy="170" r="5" fill="#b8902e"/>
+    <rect x="62" y="210" width="16" height="34" rx="3" fill="#555"/>
+    <rect x="160" y="105" width="90" height="70" rx="10" fill="var(--drum)" stroke="#78909c" stroke-width="2"/>
+    <rect x="197" y="180" width="16" height="36" rx="3" fill="#555"/>
+    <circle cx="170" cy="82" r="24" fill="var(--drum)" stroke="#78909c" stroke-width="2"/>
+    <circle cx="240" cy="80" r="27" fill="var(--drum)" stroke="#78909c" stroke-width="2"/>
+    <circle cx="300" cy="200" r="36" fill="var(--drum)" stroke="#78909c" stroke-width="2"/>
+    <circle cx="130" cy="200" r="31" fill="#fff" stroke="#78909c" stroke-width="3"/>
+    <circle cx="205" cy="262" r="20" fill="#444"/>
+    </g>
+    <text x="92" y="30" text-anchor="middle">Crash</text>
+    <text x="322" y="48" text-anchor="middle">Ride</text>
+    <text x="70" y="132" text-anchor="middle">Hi-hat</text>
+    <text x="70" y="262" text-anchor="middle" class="lbl-s nl">hi-hatpedaal</text>
+    <text x="70" y="262" text-anchor="middle" class="lbl-s en">hi-hat pedal</text>
+    <text x="205" y="145" text-anchor="middle" class="nl">Basdrum</text>
+    <text x="205" y="145" text-anchor="middle" class="en">Bass drum</text>
+    <text x="205" y="232" text-anchor="middle" class="lbl-s nl">pedaal</text>
+    <text x="205" y="232" text-anchor="middle" class="lbl-s en">pedal</text>
+    <text x="170" y="86" text-anchor="middle" class="lbl-s">High</text>
+    <text x="240" y="84" text-anchor="middle" class="lbl-s">Mid</text>
+    <text x="205" y="42" text-anchor="middle">Toms</text>
+    <text x="300" y="204" text-anchor="middle">Floor tom</text>
+    <text x="130" y="204" text-anchor="middle">Snare</text>
+    <text x="250" y="270" class="lbl-s nl">kruk (jij zit hier)</text>
+    <text x="250" y="270" class="lbl-s en">throne (you sit here)</text>
+  </svg>
+
+  <table class="nl">
+    <tr><th>Onderdeel</th><th>Wat is het</th><th>Gespeeld met</th></tr>
+    <tr><td>Basdrum (kickdrum)</td><td>De grote trommel op de grond. De laagste klank.</td><td>Rechtervoet</td></tr>
+    <tr><td>Snaredrum</td><td>Tussen je knieën, met snaren eronder. Het ‘tak’-geluid.</td><td>Handen</td></tr>
+    <tr><td>Hi-hat</td><td>Twee bekkens op elkaar. Open of dicht met je voet.</td><td>Handen + linkervoet</td></tr>
+    <tr><td>High tom</td><td>Kleinste tom, boven de basdrum. Hoge klank.</td><td>Handen</td></tr>
+    <tr><td>Mid tom</td><td>Iets grotere tom naast de high tom.</td><td>Handen</td></tr>
+    <tr><td>Floor tom</td><td>Grote tom op pootjes, rechts. Lage klank.</td><td>Handen</td></tr>
+    <tr><td>Crash</td><td>Bekken voor accenten en overgangen.</td><td>Handen</td></tr>
+    <tr><td>Ride</td><td>Grootste bekken, rechts. Voor een gelijkmatig ritme.</td><td>Handen</td></tr>
+  </table>
+  <table class="en">
+    <tr><th>Part</th><th>What it is</th><th>Played with</th></tr>
+    <tr><td>Bass drum (kick)</td><td>The big drum on the floor. The lowest sound.</td><td>Right foot</td></tr>
+    <tr><td>Snare drum</td><td>Between your knees, with wires underneath. The ‘tak’ sound.</td><td>Hands</td></tr>
+    <tr><td>Hi-hat</td><td>Two cymbals on a stand. Open or closed with your foot.</td><td>Hands + left foot</td></tr>
+    <tr><td>High tom</td><td>Smallest tom, above the bass drum. High sound.</td><td>Hands</td></tr>
+    <tr><td>Mid tom</td><td>Slightly bigger tom next to the high tom.</td><td>Hands</td></tr>
+    <tr><td>Floor tom</td><td>Big tom on legs, on the right. Low sound.</td><td>Hands</td></tr>
+    <tr><td>Crash</td><td>Cymbal for accents and transitions.</td><td>Hands</td></tr>
+    <tr><td>Ride</td><td>Biggest cymbal, on the right. For a steady rhythm.</td><td>Hands</td></tr>
+  </table>
+  <p class="nl" data-keep>Linkshandig? Druk bovenaan op <b>Linkshandig</b>: dan staat alles in spiegelbeeld.</p>
+  <p class="en" data-keep>Left-handed? Tap <b>Left-handed</b> at the top: everything is mirrored.</p>
+</section>
+
+<!-- ============ HOUDING ============ -->
+<section id="houding">
+  <h2><span class="nl">Houding</span><span class="en">Posture</span></h2>
+  <p class="short nl"><b>Kort:</b> zit rechtop op de voorkant van je kruk. Knieën iets lager dan je heupen. Schouders los, ellebogen hangen naast je lichaam. Je linkervoet houdt de hi-hat dicht.</p>
+  <p class="short en"><b>In short:</b> sit up straight on the front of the stool. Knees a bit lower than your hips. Shoulders loose, elbows hanging next to your body. Your left foot keeps the hi-hat closed.</p>
+
+  <svg class="pic" viewBox="0 0 400 260" role="img" aria-label="Posture, side view">
+    <line x1="10" y1="240" x2="390" y2="240" stroke="#999" stroke-width="2"/>
+    <!-- throne -->
+    <rect x="70" y="150" width="70" height="12" rx="5" fill="#444"/>
+    <line x1="105" y1="162" x2="105" y2="240" stroke="#444" stroke-width="5"/>
+    <!-- snare -->
+    <rect x="215" y="140" width="80" height="18" rx="3" fill="#fff" stroke="#78909c" stroke-width="3"/>
+    <line x1="255" y1="158" x2="255" y2="240" stroke="#999" stroke-width="3"/>
+    <!-- body -->
+    <circle cx="118" cy="40" r="17" fill="none" stroke="var(--ink)" stroke-width="4"/>
+    <line x1="116" y1="58" x2="112" y2="145" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+    <!-- leg -->
+    <line x1="112" y1="145" x2="195" y2="160" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+    <line x1="195" y1="160" x2="200" y2="228" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+    <line x1="200" y1="228" x2="232" y2="232" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+    <!-- arm -->
+    <line x1="116" y1="68" x2="128" y2="122" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+    <line x1="128" y1="122" x2="200" y2="128" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+    <line x1="200" y1="128" x2="262" y2="140" stroke="#8d6e63" stroke-width="4" stroke-linecap="round"/>
+    <!-- annotations -->
+    <path d="M150 151 L195 151" stroke="var(--accent)" stroke-dasharray="4 3" stroke-width="2"/>
+    <text x="390" y="80" text-anchor="end" class="hl nl">elleboog hangt los</text>
+    <text x="390" y="80" text-anchor="end" class="hl en">elbow hangs loose</text>
+    <line x1="270" y1="84" x2="135" y2="120" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="300" y="200" class="hl nl">knie iets lager</text>
+    <text x="300" y="215" class="hl nl">dan heup</text>
+    <text x="300" y="200" class="hl en">knee slightly</text>
+    <text x="300" y="215" class="hl en">lower than hip</text>
+    <line x1="296" y1="200" x2="200" y2="162" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="20" y="125" class="hl nl">rug recht</text>
+    <text x="20" y="125" class="hl en">back straight</text>
+    <text x="10" y="185" class="lbl-s nl">voorste helft</text>
+    <text x="10" y="199" class="lbl-s nl">van de kruk</text>
+    <text x="10" y="185" class="lbl-s en">front half</text>
+    <text x="10" y="199" class="lbl-s en">of the throne</text>
+    <text x="222" y="132" class="lbl-s">snare</text>
+  </svg>
+
+  <div class="nl">
+    <h3>Zithoogte</h3>
+    <ul>
+      <li>Zit op de voorste helft van de kruk.</li>
+      <li>Je dijen lopen licht schuin naar beneden: knieën iets lager dan je heupen. Je knie maakt een rechte hoek of iets meer.</li>
+      <li>Te laag = je benen werken zwaar en je hurkt boven de drums. Te hoog = je verliest evenwicht en controle op de pedalen.</li>
+    </ul>
+    <h3>Afstand en armpositie</h3>
+    <ul>
+      <li>De snare staat tussen je knieën, net boven kniehoogte, bijna plat.</li>
+      <li>Laat je armen hangen en buig je ellebogen: de stokken raken het midden van de snare zonder dat je naar voor leunt.</li>
+      <li>Ellebogen dicht bij je lichaam, niet opzij. Schouders laag en ontspannen. Rug recht, kijk vooruit.</li>
+    </ul>
+    <h3>Voeten</h3>
+    <ul>
+      <li>Rechtervoet op het basdrumpedaal, linkervoet op het hi-hatpedaal.</li>
+      <li>Vanaf de eerste les houdt de linkervoet de hi-hat dicht. Met die voet spelen komt later.</li>
+    </ul>
+  </div>
+  <div class="en">
+    <h3>Seat height</h3>
+    <ul>
+      <li>Sit on the front half of the throne.</li>
+      <li>Your thighs slope slightly down: knees a bit lower than your hips. Your knee makes a 90° angle or a little more.</li>
+      <li>Too low = your legs work hard and you crouch over the drums. Too high = you lose balance and control of the pedals.</li>
+    </ul>
+    <h3>Distance and arm position</h3>
+    <ul>
+      <li>The snare sits between your knees, just above knee height, almost flat.</li>
+      <li>Let your arms hang and bend your elbows: the sticks reach the centre of the snare without leaning forward.</li>
+      <li>Elbows close to your body, not sticking out. Shoulders low and relaxed. Back straight, look ahead.</li>
+    </ul>
+    <h3>Feet</h3>
+    <ul>
+      <li>Right foot on the bass drum pedal, left foot on the hi-hat pedal.</li>
+      <li>From the first lesson, the left foot keeps the hi-hat closed. Playing with that foot comes later.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ STOKKEN ============ -->
+<section id="stokken">
+  <h2><span class="nl">Stokken vasthouden</span><span class="en">Holding the sticks</span></h2>
+  <p class="short nl"><b>Kort:</b> knijp de stok tussen duim en wijsvinger, op een derde van het achterste uiteinde. De andere vingers liggen er losjes rond. Hou hem vast zoals een vogeltje: niet laten wegvliegen, maar ook niet platdrukken.</p>
+  <p class="short en"><b>In short:</b> pinch the stick between thumb and index finger, a third of the way from the back end. The other fingers wrap around loosely. Hold it like a little bird: don't let it fly away, but don't squash it.</p>
+
+  <svg class="pic" viewBox="0 0 400 130" role="img" aria-label="Where to hold the stick">
+    <line x1="20" y1="60" x2="370" y2="60" stroke="#c8a27a" stroke-width="10" stroke-linecap="round"/>
+    <ellipse cx="376" cy="60" rx="9" ry="7" fill="#c8a27a"/>
+    <rect x="112" y="36" width="44" height="18" rx="9" fill="#f2c9a5" stroke="#b07a55"/>
+    <rect x="112" y="66" width="56" height="18" rx="9" fill="#f2c9a5" stroke="#b07a55"/>
+    <circle cx="137" cy="60" r="8" fill="var(--accent)"/>
+    <path d="M20 100 L137 100" stroke="var(--ink)" stroke-width="1.5"/>
+    <path d="M20 94 L20 106 M137 94 L137 106" stroke="var(--ink)" stroke-width="1.5"/>
+    <text x="78" y="120" text-anchor="middle">± 1/3</text>
+    <text x="134" y="25" text-anchor="middle" class="hl nl">duim</text>
+    <text x="134" y="25" text-anchor="middle" class="hl en">thumb</text>
+    <text x="215" y="80" class="lbl-s nl">wijsvinger (draaipunt)</text>
+    <text x="215" y="80" class="lbl-s en">index finger (pivot)</text>
+    <text x="300" y="40" class="lbl-s nl">punt →</text>
+    <text x="300" y="40" class="lbl-s en">tip →</text>
+  </svg>
+
+  <div class="nl">
+    <p>We spelen <b>matched grip</b>: beide handen houden de stok op dezelfde manier vast.</p>
+    <h3>Het draaipunt</h3>
+    <ol>
+      <li>Leg de stok op je wijsvinger en zoek waar hij het best terugstuitert: meestal op een derde vanaf het achterste uiteinde.</li>
+      <li>Duim plat op de stok, tegenover het eerste of tweede kootje van je wijsvinger.</li>
+      <li>De andere vingers sluiten losjes rond de stok. Ze sturen, ze knijpen niet.</li>
+      <li>Een beetje ruimte in je handpalm. Het achterste uiteinde steekt een paar centimeter uit.</li>
+    </ol>
+    <h3>Hoek van de handen</h3>
+  </div>
+  <div class="en">
+    <p>We play <b>matched grip</b>: both hands hold the stick the same way.</p>
+    <h3>The pivot point</h3>
+    <ol>
+      <li>Rest the stick on your index finger and find where it bounces back best: usually a third from the back end.</li>
+      <li>Thumb flat on the stick, opposite the first or second joint of your index finger.</li>
+      <li>The other fingers close loosely around the stick. They guide, they don't squeeze.</li>
+      <li>A little space in your palm. The back end sticks out a few centimetres.</li>
+    </ol>
+    <h3>Hand angle</h3>
+  </div>
+
+  <p class="nl" style="color:var(--muted);font-size:.9rem;margin:0">Je handen van voren gezien, met de stokken naar je toe:</p><p class="en" style="color:var(--muted);font-size:.9rem;margin:0">Your hands seen from the front, sticks pointing at you:</p>
+  <svg class="pic" viewBox="0 0 400 140" role="img" aria-label="American, French and German grip, seen from the front">
+    <g transform="translate(70 60)">
+      <rect x="-50" y="-10" width="38" height="20" rx="9" fill="#f2c9a5" stroke="#b07a55" transform="rotate(-45 -31 0)"/>
+      <rect x="12" y="-10" width="38" height="20" rx="9" fill="#f2c9a5" stroke="#b07a55" transform="rotate(45 31 0)"/>
+      <text y="62" text-anchor="middle" font-weight="700">American</text>
+      <text y="78" text-anchor="middle" class="lbl-s nl">± 45° naar binnen</text><text y="78" text-anchor="middle" class="lbl-s en">± 45° inward</text>
+    </g>
+    <g transform="translate(200 60)">
+      <rect x="-40" y="-17" width="22" height="34" rx="10" fill="#f2c9a5" stroke="#b07a55"/>
+      <rect x="18" y="-17" width="22" height="34" rx="10" fill="#f2c9a5" stroke="#b07a55"/>
+      <text y="62" text-anchor="middle" font-weight="700">French</text>
+      <text y="78" text-anchor="middle" class="lbl-s nl">duimen boven</text>
+      <text y="78" text-anchor="middle" class="lbl-s en">thumbs up</text>
+    </g>
+    <g transform="translate(330 60)">
+      <rect x="-48" y="-10" width="38" height="20" rx="9" fill="#f2c9a5" stroke="#b07a55"/>
+      <rect x="10" y="-10" width="38" height="20" rx="9" fill="#f2c9a5" stroke="#b07a55"/>
+      <text y="62" text-anchor="middle" font-weight="700">German</text>
+      <text y="78" text-anchor="middle" class="lbl-s nl">handrug boven</text>
+      <text y="78" text-anchor="middle" class="lbl-s en">palms down</text>
+    </g>
+  </svg>
+
+  <table class="nl">
+    <tr><th>Grip</th><th>Wanneer</th></tr>
+    <tr><td><b>American</b></td><td>De standaard. Hiermee leer je alles.</td></tr>
+    <tr><td><b>French</b></td><td>Snelle, lichte noten met de vingers. Later ook voor blastbeats.</td></tr>
+    <tr><td><b>German</b></td><td>Meer pols. Kort aangeraakt, niet de standaard.</td></tr>
+  </table>
+  <table class="en">
+    <tr><th>Grip</th><th>When</th></tr>
+    <tr><td><b>American</b></td><td>The default. You learn everything with this.</td></tr>
+    <tr><td><b>French</b></td><td>Fast, light notes with the fingers. Later also for blast beats.</td></tr>
+    <tr><td><b>German</b></td><td>More wrist. Shown briefly, not the default.</td></tr>
+  </table>
+  <p class="nl">Let op: knijp niet. Een te strakke greep doet pijn aan je onderarm en de stok kan niet terugveren.</p>
+  <p class="en">Careful: don't squeeze. A tight grip hurts your forearm and the stick can't bounce back.</p>
+</section>
+
+<!-- ============ HANDSLAG ============ -->
+<section id="handslag">
+  <h2><span class="nl">De slag met de hand</span><span class="en">The hand stroke</span></h2>
+  <p class="short nl"><b>Kort:</b> je arm is een zweep. Eerst gaat je arm omhoog en je hand hangt erachter. Dan gaat je arm naar beneden en je hand komt pas op het laatste moment mee. Pats! Laat de stok daarna terugveren.</p>
+  <p class="short en"><b>In short:</b> your arm is a whip. First your arm goes up and your hand hangs behind it. Then your arm goes down and your hand only follows at the last moment. Snap! Then let the stick bounce back.</p>
+
+  <svg class="pic" viewBox="0 0 400 170" role="img" aria-label="Four phases of the hand stroke">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+    <!-- frame 1: arm up, hand hangs -->
+    <g transform="translate(0 0)">
+      <rect x="10" y="128" width="80" height="10" fill="var(--drum)"/>
+      <line x1="15" y1="100" x2="52" y2="62" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="52" cy="62" r="5" fill="var(--ink)"/>
+      <line x1="52" y1="62" x2="88" y2="102" stroke="#8d6e63" stroke-width="4" stroke-linecap="round"/>
+      <path d="M30 70 L44 50" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="50" y="22" text-anchor="middle" font-weight="700">1</text>
+    </g>
+    <!-- frame 2: hand catches up -->
+    <g transform="translate(100 0)">
+      <rect x="10" y="128" width="80" height="10" fill="var(--drum)"/>
+      <line x1="15" y1="100" x2="52" y2="62" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="52" cy="62" r="5" fill="var(--ink)"/>
+      <line x1="52" y1="62" x2="78" y2="24" stroke="#8d6e63" stroke-width="4" stroke-linecap="round"/>
+      <path d="M85 90 Q92 60 82 36" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="50" y="22" text-anchor="middle" font-weight="700">2</text>
+    </g>
+    <!-- frame 3: arm down, hand stays up -->
+    <g transform="translate(200 0)">
+      <rect x="10" y="128" width="80" height="10" fill="var(--drum)"/>
+      <line x1="15" y1="100" x2="56" y2="92" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="56" cy="92" r="5" fill="var(--ink)"/>
+      <line x1="56" y1="92" x2="72" y2="46" stroke="#8d6e63" stroke-width="4" stroke-linecap="round"/>
+      <path d="M36 72 L44 92" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="50" y="22" text-anchor="middle" font-weight="700">3</text>
+    </g>
+    <!-- frame 4: wrist snaps down -->
+    <g transform="translate(300 0)">
+      <rect x="10" y="128" width="80" height="10" fill="var(--drum)"/>
+      <line x1="15" y1="104" x2="56" y2="100" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="56" cy="100" r="5" fill="var(--ink)"/>
+      <line x1="56" y1="100" x2="90" y2="127" stroke="#8d6e63" stroke-width="4" stroke-linecap="round"/>
+      <path d="M78 64 Q96 90 90 116" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+      <text x="80" y="122" class="hl">!</text>
+      <text x="50" y="22" text-anchor="middle" font-weight="700">4</text>
+    </g>
+    <g class="nl">
+      <text x="50" y="158" text-anchor="middle" class="lbl-s">arm omhoog</text>
+      <text x="150" y="158" text-anchor="middle" class="lbl-s">hand haalt in</text>
+      <text x="250" y="158" text-anchor="middle" class="lbl-s">arm omlaag</text>
+      <text x="350" y="158" text-anchor="middle" class="lbl-s">pols klapt neer</text>
+    </g>
+    <g class="en">
+      <text x="50" y="158" text-anchor="middle" class="lbl-s">arm up</text>
+      <text x="150" y="158" text-anchor="middle" class="lbl-s">hand catches up</text>
+      <text x="250" y="158" text-anchor="middle" class="lbl-s">arm down</text>
+      <text x="350" y="158" text-anchor="middle" class="lbl-s">wrist snaps down</text>
+    </g>
+  </svg>
+
+  <div class="nl">
+    <p>De kracht komt niet uit knijpen of duwen, maar uit een ketting: schouder → elleboog → pols → vingers. Elk deel start net na het vorige.</p>
+    <ol>
+      <li><b>Arm omhoog, hand volgt.</b> Elleboog en onderarm gaan eerst omhoog. De pols blijft los, dus de hand en stok hangen nog naar beneden.</li>
+      <li><b>Hand haalt in.</b> Bovenaan komt de hand mee omhoog. De stokpunt wijst nu naar boven.</li>
+      <li><b>Arm naar beneden, hand blijft omhoog.</b> De arm zakt al terwijl de hand nog omhoog staat of zelfs nog wat verder omhoog gaat.</li>
+      <li><b>Hand slaat op het einde.</b> Vlak voor de trommel klapt de pols naar beneden: maximale kracht.</li>
+      <li><b>Terugveren.</b> Laat de stok terugstuiteren van het vel. Niet in het vel drukken.</li>
+    </ol>
+    <h3>Oefenen</h3>
+    <ul>
+      <li>Eerst traag en groot, één hand tegelijk, op de snare of een oefenpad.</li>
+      <li>Kijk in een spiegel of film jezelf: de hand loopt altijd een beetje achter de arm aan.</li>
+      <li>Hard en zacht is dezelfde beweging, alleen groter of kleiner.</li>
+    </ul>
+  </div>
+  <div class="en">
+    <p>Power doesn't come from squeezing or pushing, but from a chain: shoulder → elbow → wrist → fingers. Each part starts just after the one before.</p>
+    <ol>
+      <li><b>Arm up, hand follows.</b> Elbow and forearm go up first. The wrist stays loose, so the hand and stick still hang down.</li>
+      <li><b>Hand catches up.</b> At the top the hand comes up too. The tip of the stick now points up.</li>
+      <li><b>Arm down, hand stays up.</b> The arm is already dropping while the hand is still up, or even moves a bit further up.</li>
+      <li><b>Hand strikes at the end.</b> Just before the drum, the wrist snaps down: maximum power.</li>
+      <li><b>Rebound.</b> Let the stick bounce off the head. Don't press into it.</li>
+    </ol>
+    <h3>Practice</h3>
+    <ul>
+      <li>Slow and big first, one hand at a time, on the snare or a practice pad.</li>
+      <li>Use a mirror or film yourself: the hand always trails a bit behind the arm.</li>
+      <li>Loud and soft are the same motion, just bigger or smaller.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ VOETSLAG ============ -->
+<section id="voetslag">
+  <h2><span class="nl">De slag met de voet</span><span class="en">The foot stroke</span></h2>
+  <p class="short nl"><b>Kort:</b> de bal van je voet blijft altijd op het pedaal. Je tilt je been een beetje op en laat het vallen. Het gewicht van je been duwt het pedaal in. Daarna laat je de klopper terugkomen.</p>
+  <p class="short en"><b>In short:</b> the ball of your foot always stays on the pedal. You lift your leg a little and let it drop. The weight of your leg pushes the pedal down. Then you let the beater come back.</p>
+
+  <svg class="pic" viewBox="0 0 400 180" role="img" aria-label="Heel-up foot stroke: the ball of the foot stays on the pedal">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>
+    <g transform="translate(0 0)">
+      <rect x="92" y="40" width="8" height="100" fill="var(--drum)"/>
+      <line x1="20" y1="138" x2="80" y2="108" stroke="#555" stroke-width="5"/>
+      <line x1="80" y1="108" x2="64" y2="64" stroke="#555" stroke-width="3"/><circle cx="64" cy="64" r="6" fill="#555"/>
+      <line x1="46" y1="26" x2="36" y2="90" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="36" y1="90" x2="66" y2="114" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="66" cy="114" r="5" fill="var(--accent)"/>
+      <text x="55" y="16" text-anchor="middle" font-weight="700">1</text>
+    </g>
+    <g transform="translate(133 0)">
+      <rect x="92" y="40" width="8" height="100" fill="var(--drum)"/>
+      <line x1="20" y1="138" x2="80" y2="132" stroke="#555" stroke-width="5"/>
+      <line x1="80" y1="132" x2="92" y2="92" stroke="#555" stroke-width="3"/><circle cx="92" cy="92" r="6" fill="#555"/>
+      <line x1="46" y1="46" x2="36" y2="110" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="36" y1="110" x2="66" y2="133" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="66" cy="133" r="5" fill="var(--accent)"/>
+      <text x="55" y="16" text-anchor="middle" font-weight="700">2</text>
+    </g>
+    <g transform="translate(266 0)">
+      <rect x="92" y="40" width="8" height="100" fill="var(--drum)"/>
+      <line x1="20" y1="138" x2="80" y2="120" stroke="#555" stroke-width="5"/>
+      <line x1="80" y1="120" x2="76" y2="72" stroke="#555" stroke-width="3"/><circle cx="76" cy="72" r="6" fill="#555"/>
+      <line x1="46" y1="42" x2="36" y2="104" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+      <line x1="36" y1="104" x2="66" y2="123" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="66" cy="123" r="5" fill="var(--accent)"/>
+      <text x="55" y="16" text-anchor="middle" font-weight="700">3</text>
+    </g>
+    <path d="M20 50 L20 26" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar2)"/>
+    <path d="M153 46 L153 72" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar2)"/>
+    <g class="nl">
+      <text x="55" y="158" text-anchor="middle" class="lbl-s">been omhoog</text>
+      <text x="188" y="158" text-anchor="middle" class="lbl-s">been valt: klopper raakt</text>
+      <text x="321" y="158" text-anchor="middle" class="lbl-s">klopper veert terug</text>
+      <text x="200" y="176" text-anchor="middle" class="lbl-s">● = bal van je voet: blijft altijd op het pedaal</text>
+    </g>
+    <g class="en">
+      <text x="55" y="158" text-anchor="middle" class="lbl-s">leg up</text>
+      <text x="188" y="158" text-anchor="middle" class="lbl-s">leg drops: beater hits</text>
+      <text x="321" y="158" text-anchor="middle" class="lbl-s">beater bounces back</text>
+      <text x="200" y="176" text-anchor="middle" class="lbl-s">● = ball of your foot: always stays on the pedal</text>
+    </g>
+  </svg>
+
+  <div class="nl">
+    <h3>Heel up (zo spelen we meestal)</h3>
+    <ol>
+      <li><b>Bal van de voet op het pedaal.</b> De hiel is los. De bal van je voet is het contactpunt met het pedaal en blijft er altijd op.</li>
+      <li><b>Been omhoog.</b> Je bovenbeen tilt de knie op. Voet en pedaal komen mee omhoog.</li>
+      <li><b>Been laten vallen.</b> Het gewicht van je been duwt via de bal van je voet het pedaal in. De kracht komt uit je been, niet uit een trap met je voet.</li>
+      <li><b>Terugveren.</b> Laat de klopper terugkomen van het vel. Blijf niet duwen, anders ‘sterft’ de klank in het vel.</li>
+    </ol>
+    <h3>Heel down (mag in het begin)</h3>
+    <p>Is heel up nog te moeilijk? Dan mag je eerst heel down spelen. De hiel blijft op het pedaal en nu beweegt de voet zelf: de enkel tilt de voorvoet op en tikt het pedaal in. Zachter, maar makkelijker. Zodra het ritme goed zit, schakel je over naar heel up.</p>
+    <h3>Hi-hatvoet</h3>
+    <ul>
+      <li>In het begin houdt je linkervoet de hi-hat gewoon dicht: hele voet plat op het pedaal, met lichte druk.</li>
+      <li>Open en dicht spelen met de voet komt in een latere les.</li>
+    </ul>
+  </div>
+  <div class="en">
+    <h3>Heel up (how we usually play)</h3>
+    <ol>
+      <li><b>Ball of the foot on the pedal.</b> The heel is up. The ball of your foot is the contact point with the pedal and always stays on it.</li>
+      <li><b>Leg up.</b> Your thigh lifts the knee. Foot and pedal come up with it.</li>
+      <li><b>Let the leg drop.</b> The weight of your leg pushes the pedal down through the ball of your foot. The power comes from your leg, not from kicking with your foot.</li>
+      <li><b>Rebound.</b> Let the beater come back off the head. Don't keep pushing, or the sound ‘dies’ in the head.</li>
+    </ol>
+    <h3>Heel down (fine at the start)</h3>
+    <p>Is heel up still too hard? Then start with heel down. The heel stays on the pedal and now the foot itself moves: the ankle lifts the front of the foot and taps the pedal down. Softer, but easier. Once the rhythm is solid, switch to heel up.</p>
+    <h3>Hi-hat foot</h3>
+    <ul>
+      <li>At first your left foot just keeps the hi-hat closed: whole foot flat on the pedal, with light pressure.</li>
+      <li>Opening and closing with the foot comes in a later lesson.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ NOTENBALK ============ -->
+<section id="notenbalk">
+  <h2><span class="nl">Notenbalk lezen</span><span class="en">Reading the staff</span></h2>
+  <p class="short nl"><b>Kort:</b> elke lijn of ruimte is een ander deel van je drumstel. Onderaan = voeten, midden = trommels, bovenaan met een kruisje = bekkens. De crash staat het hoogst, op een eigen hulplijntje.</p>
+  <p class="short en"><b>In short:</b> every line or space is a different part of your kit. Bottom = feet, middle = drums, top with a cross = cymbals. The crash sits highest, on its own ledger line.</p>
+
+  <svg class="pic" viewBox="0 0 600 210" role="img" aria-label="Drum notation legend, as Groove Scribe writes it">
+    <g stroke="#333" stroke-width="1.2">
+      <line x1="10" y1="60" x2="590" y2="60"/>
+      <line x1="10" y1="72" x2="590" y2="72"/>
+      <line x1="10" y1="84" x2="590" y2="84"/>
+      <line x1="10" y1="96" x2="590" y2="96"/>
+      <line x1="10" y1="108" x2="590" y2="108"/>
+    </g>
+    <line x1="32" y1="48" x2="58" y2="48" stroke="#333" stroke-width="1.2"/>
+    <line x1="32" y1="36" x2="58" y2="36" stroke="#333" stroke-width="1.2"/>
+    <path d="M39 30 L51 42 M51 30 L39 42" stroke="var(--ink)" stroke-width="2.5"/>
+    <text x="41" y="140" transform="rotate(40 41 140)" font-size="12">Crash</text>
+    <line x1="88" y1="48" x2="114" y2="48" stroke="#333" stroke-width="1.2"/>
+    <path d="M95 42 L107 54 M107 42 L95 54" stroke="var(--ink)" stroke-width="2.5"/>
+    <text x="97" y="140" transform="rotate(40 97 140)" font-size="12">Ride</text>
+    <line x1="144" y1="48" x2="170" y2="48" stroke="#333" stroke-width="1.2"/>
+    <path d="M151 36 L163 48 M163 36 L151 48" stroke="var(--ink)" stroke-width="2.5"/>
+    <text x="153" y="140" transform="rotate(40 153 140)" font-size="12">Ride bell</text>
+    <path d="M207 48 L219 60 M219 48 L207 60" stroke="var(--ink)" stroke-width="2.5"/>
+    <text x="209" y="140" transform="rotate(40 209 140)" font-size="12">Hi-hat</text>
+    <ellipse cx="269" cy="66" rx="7" ry="5" transform="rotate(-20 269 66)" fill="var(--ink)"/>
+    <text x="265" y="140" transform="rotate(40 265 140)" font-size="12">High tom</text>
+    <ellipse cx="325" cy="72" rx="7" ry="5" transform="rotate(-20 325 72)" fill="var(--ink)"/>
+    <text x="321" y="140" transform="rotate(40 321 140)" font-size="12">Mid tom</text>
+    <ellipse cx="381" cy="78" rx="7" ry="5" transform="rotate(-20 381 78)" fill="var(--accent)"/>
+    <text x="377" y="140" transform="rotate(40 377 140)" font-size="12" class="hl">Snare</text>
+    <ellipse cx="437" cy="90" rx="7" ry="5" transform="rotate(-20 437 90)" fill="var(--ink)"/>
+    <text x="433" y="140" transform="rotate(40 433 140)" font-size="12">Floor tom</text>
+    <ellipse cx="493" cy="102" rx="7" ry="5" transform="rotate(-20 493 102)" fill="var(--ink)"/>
+    <text x="489" y="140" transform="rotate(40 489 140)" font-size="12" class="nl">Basdrum</text>
+    <text x="489" y="140" transform="rotate(40 489 140)" font-size="12" class="en">Bass drum</text>
+    <path d="M543 108 L555 120 M555 108 L543 120" stroke="var(--ink)" stroke-width="2.5"/>
+    <text x="545" y="140" transform="rotate(40 545 140)" font-size="12" class="nl">Hi-hatvoet</text>
+    <text x="545" y="140" transform="rotate(40 545 140)" font-size="12" class="en">Hi-hat foot</text>
+  </svg>
+
+  <div class="nl">
+    <p data-keep>Lees van links naar rechts. Een maat heeft 4 tellen: 1 2 3 4. Noten die boven elkaar staan, speel je tegelijk.</p>
+    <h3>Extra tekens</h3>
+    <ul>
+      <li><b>&gt;</b> boven een noot = accent, harder spelen.</li>
+      <li><b>o</b> boven een hi-hatnoot = open hi-hat; <b>+</b> = dicht.</li>
+      <li>Een noot tussen haakjes ( ) = ghostnote, heel zacht.</li>
+      <li>Een <b>rust</b> = niets spelen op die tel.</li>
+      <li><b>♩ = 60</b> = het tempo: 60 tellen per minuut.</li>
+    </ul>
+    <p>De noten in deze cursus komen uit Groove Scribe en staan op dezelfde plaatsen. Zo ziet de beat van les 1 eruit. Druk op ▶ en volg de noten:</p>
+  </div>
+  <div class="en">
+    <p data-keep>Read from left to right. A bar has 4 counts: 1 2 3 4. Notes stacked on top of each other are played together.</p>
+    <h3>Extra symbols</h3>
+    <ul>
+      <li><b>&gt;</b> above a note = accent, play louder.</li>
+      <li><b>o</b> above a hi-hat note = open hi-hat; <b>+</b> = closed.</li>
+      <li>A note in brackets ( ) = ghost note, very soft.</li>
+      <li>A <b>rest</b> = play nothing on that count.</li>
+      <li><b>♩ = 60</b> = the tempo: 60 counts per minute.</li>
+    </ul>
+    <p>The notation in this course comes from Groove Scribe and uses the same positions. This is the lesson 1 beat. Press ▶ and follow the notes:</p>
+  </div>
+  <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|x-x-x-x-|&S=|----o---|&K=|o-------|"></div>
+</section>
+
+<!-- ============ BEKKENS ============ -->
+<section id="bekkens">
+  <h2><span class="nl">Bekkens: wanneer welke?</span><span class="en">Cymbals: which one when?</span></h2>
+  <p class="short nl"><b>Kort:</b> de crash is een uitroepteken: ‘let op, nu verandert er iets!’. De hi-hat en de ride houden het ritme bij. De ride gebruik je als het lied groter of anders moet klinken.</p>
+  <p class="short en"><b>In short:</b> the crash is an exclamation mark: ‘watch out, something changes now!’. The hi-hat and the ride keep the rhythm going. You use the ride when the song needs to sound bigger or different.</p>
+
+  <h3>Crash</h3>
+  <ul class="nl">
+    <li>Een crash zegt: hier begint iets nieuws. Bijvoorbeeld van couplet naar refrein, of na een fill.</li>
+    <li>Na een herhaling: als een stuk van 4 of 8 maten opnieuw begint, markeer je de eerste tel met een crash.</li>
+    <li>Speel hem bijna altijd samen met de basdrum op tel 1.</li>
+    <li>Niet elke maat crashen. Hoe vaker je het doet, hoe minder het betekent.</li>
+    <li>Sla schuin op de rand met het lijf van de stok, en laat de stok meteen terugkomen.</li>
+  </ul>
+  <ul class="en">
+    <li>A crash says: something new starts here. For example from verse to chorus, or after a fill.</li>
+    <li>After a repeat: when a section of 4 or 8 bars starts again, mark its first beat with a crash.</li>
+    <li>Almost always play it together with the bass drum on beat 1.</li>
+    <li>Don't crash every bar. The more often you do it, the less it means.</li>
+    <li>Hit the edge at an angle with the shoulder of the stick, and let the stick come right back.</li>
+  </ul>
+  <p class="nl">Crash op tel 1, daarna een gewone maat:</p>
+  <p class="en">Crash on beat 1, then a normal bar:</p>
+  <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=80&Measures=2&H=|c-x-x-x-|x-x-x-x-|&S=|----o---|----o---|&K=|o-------|o-------|"></div>
+
+  <h3><span class="nl">Hi-hat: dynamiek</span><span class="en">Hi-hat dynamics</span></h3>
+  <ul class="nl">
+    <li>Dicht en strak (je linkervoet duwt het hi-hatpedaal stevig in): korte, droge tik. Voor rustige stukken.</li>
+    <li>Een beetje los (je linkervoet duwt minder hard): ruwer, meer ‘tsss’. Voor stevigere stukken.</li>
+    <li>Open (o) en weer dicht (+): een ‘tsssst’ die je met je linkervoet afsluit.</li>
+    <li>Punt van de stok op de bovenkant = zacht. Lijf van de stok op de rand = hard.</li>
+  </ul>
+  <ul class="en">
+    <li>Closed tight (your left foot presses the hi-hat pedal firmly): short, dry tick. For quiet parts.</li>
+    <li>A bit loose (your left foot presses less): rougher, more ‘tsss’. For heavier parts.</li>
+    <li>Open (o) and closed again (+): a ‘tsssst’ you cut off with your left foot.</li>
+    <li>Tip of the stick on top = soft. Shoulder of the stick on the edge = loud.</li>
+  </ul>
+  <p class="nl">Accent op elke tel:</p><p class="en">Accent on every beat:</p>
+  <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=80&Measures=1&H=|XxXxXxXx|&S=|--o---o-|&K=|o---o---|"></div>
+  <p class="nl">Open hi-hat op ‘4 en’:</p><p class="en">Open hi-hat on ‘4 and’:</p>
+  <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=80&Measures=1&H=|xxxxxxxo|&S=|--o---o-|&K=|o---o---|"></div>
+
+  <h3><span class="nl">Ride en bell</span><span class="en">Ride and bell</span></h3>
+  <svg class="pic" viewBox="0 0 400 170" role="img" aria-label="Zones of the ride cymbal">
+    <circle cx="85" cy="85" r="75" fill="var(--brass)" stroke="#b8902e" stroke-width="2"/>
+    <circle cx="85" cy="85" r="50" fill="none" stroke="#b8902e" stroke-dasharray="3 3"/>
+    <circle cx="85" cy="85" r="20" fill="#d8b04f" stroke="#b8902e"/>
+    <text x="85" y="89" text-anchor="middle" font-weight="700">Bell</text>
+    <text x="85" y="125" text-anchor="middle" font-weight="700">Bow</text>
+    <line x1="152" y1="55" x2="190" y2="40" stroke="var(--accent)" stroke-width="1.5"/>
+    <line x1="105" y1="85" x2="190" y2="85" stroke="var(--accent)" stroke-width="1.5"/>
+    <line x1="120" y1="120" x2="190" y2="130" stroke="var(--accent)" stroke-width="1.5"/>
+    <g class="nl">
+      <text x="196" y="44">Rand: ruis, bijna crash</text>
+      <text x="196" y="89">Bell: hard, snijdend</text>
+      <text x="196" y="134">Bow: duidelijke ‘ping’</text>
+    </g>
+    <g class="en">
+      <text x="196" y="44">Edge: wash, almost a crash</text>
+      <text x="196" y="89">Bell: loud, cutting</text>
+      <text x="196" y="134">Bow: clear ‘ping’</text>
+    </g>
+  </svg>
+  <ul class="nl">
+    <li>Ride: punt van de stok op het vlakke stuk (bow), tussen rand en bol.</li>
+    <li>Bell: de bol in het midden, met de schouder van de stok.</li>
+    <li>Wissel van hi-hat naar ride om een nieuw stuk anders te laten klinken, bv. het refrein of de brug.</li>
+    <li>De bell gebruik je voor accenten of in een refrein dat er bovenuit moet komen.</li>
+  </ul>
+  <ul class="en">
+    <li>Ride: tip of the stick on the flat part (bow), between edge and bell.</li>
+    <li>Bell: the dome in the middle, with the shoulder of the stick.</li>
+    <li>Switch from hi-hat to ride to make a new section sound different, e.g. the chorus or the bridge.</li>
+    <li>Use the bell for accents, or in a chorus that has to stand out.</li>
+  </ul>
+  <p>Ride:</p>
+  <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=80&Measures=1&H=|rrrrrrrr|&S=|--o---o-|&K=|o---o---|"></div>
+  <p class="nl">Bell op de tellen:</p><p class="en">Bell on the beats:</p>
+  <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=80&Measures=1&H=|brbrbrbr|&S=|--o---o-|&K=|o---o---|"></div>
+</section>
+
+<!-- ============ LES 1 ============ -->
+<section id="les-1">
+  <h2><span class="nl">Les 1: één beat, stap per stap</span><span class="en">Lesson 1: one beat, step by step</span></h2>
+  <p class="goal nl">Doel: je eerste rockbeat, met crash, ride en een fill rond de toms. Tempo 60.</p>
+  <p class="goal en">Goal: your first rock beat, with crash, ride and a fill around the toms. Tempo 60.</p>
+  <p class="nl">We bouwen de beat op met één deel tegelijk. Pas als een stap 4 keer na elkaar lukt, voeg je het volgende toe. Tel hardop: ‘1, 2, 3, 4’.</p>
+  <p class="en">We build the beat one part at a time. Only when a step works 4 times in a row do you add the next. Count out loud: ‘1, 2, 3, 4’.</p>
+  <ol class="ex">
+    <li><b class="nl">Hi-hat op elke tel, rechterhand.</b><b class="en">Hi-hat on every beat, right hand.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|x-x-x-x-|&S=|--------|&K=|--------|"></div></li>
+    <li><b class="nl">+ basdrum op tel 1.</b><b class="en">+ bass drum on 1.</b>
+      <span class="nl">Hi-hat en basdrum vallen precies samen.</span><span class="en">Hi-hat and bass drum land exactly together.</span>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|x-x-x-x-|&S=|--------|&K=|o-------|"></div></li>
+    <li><b class="nl">Hi-hat + snare op tel 3 (zonder basdrum).</b><b class="en">Hi-hat + snare on 3 (no bass drum).</b>
+      <span class="nl">Linkerhand op de snare.</span><span class="en">Left hand on the snare.</span>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|x-x-x-x-|&S=|----o---|&K=|--------|"></div></li>
+    <li><b class="nl">Alles samen.</b><b class="en">All together.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|x-x-x-x-|&S=|----o---|&K=|o-------|"></div></li>
+    <li><b class="nl">Crash op tel 1, samen met de basdrum.</b><b class="en">Crash on 1, together with the bass drum.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|c-x-x-x-|&S=|----o---|&K=|o-------|"></div></li>
+    <li><b class="nl">Ride in plaats van hi-hat.</b><b class="en">Ride instead of hi-hat.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|r-r-r-r-|&S=|----o---|&K=|o-------|"></div></li>
+    <li><b class="nl">Fill: 8 slagen in plaats van 4.</b><b class="en">Fill: 8 strokes instead of 4.</b>
+      <span class="nl">‘1 en 2 en 3 en 4 en’: twee op de snare, twee op de high tom, twee op de mid tom, twee op de floor tom. Begin met rechts: rechts-links.</span>
+      <span class="en">‘1 and 2 and 3 and 4 and’: two on the snare, two on the high tom, two on the mid tom, two on the floor tom. Start with the right: right-left.</span>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=1&H=|--------|&S=|oo------|&K=|--------|&T1=|--oo----|&T2=|----oo--|&T4=|------oo|&Stickings=|RLRLRLRL|"></div></li>
+    <li><b class="nl">Alles in één keer:</b><b class="en">All in one go:</b>
+      <span class="nl">3 maten beat (de eerste met crash), de fill, en opnieuw met een crash.</span>
+      <span class="en">3 bars of beat (the first with a crash), the fill, and again with a crash.</span>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=60&Measures=4&H=|c-x-x-x-|x-x-x-x-|x-x-x-x-|--------|&S=|----o---|----o---|----o---|oo------|&K=|o-------|o-------|o-------|--------|&T1=|--------|--------|--------|--oo----|&T2=|--------|--------|--------|----oo--|&T4=|--------|--------|--------|------oo|"></div></li>
+  </ol>
+  <ul class="nl">
+    <li>Hi-hat en basdrum op tel 1: echt samen, niet na elkaar.</li>
+    <li>Na de fill niet stoppen: de crash op 1 komt meteen.</li>
+    <li>Linkervoet houdt de hi-hat dicht.</li>
+  </ul>
+  <ul class="en">
+    <li>Hi-hat and bass drum on beat 1: really together, not one after the other.</li>
+    <li>Don't stop after the fill: the crash on 1 comes straight away.</li>
+    <li>Left foot keeps the hi-hat closed.</li>
+  </ul>
+  <p class="done-when nl"><b>Klaar als…</b> je stap 8 vier keer na elkaar zonder stoppen speelt op 60.</p>
+  <p class="done-when en"><b>Done when…</b> you play step 8 four times in a row without stopping at 60.</p>
+  <p class="teacher nl"><b>Voor de leraar:</b> greep (draaipunt, niet knijpen), zithoogte en snarehoogte instellen. Handslag traag en groot voordoen voor stap 1. Telt de leerling hardop?</p>
+  <p class="teacher en"><b>For the teacher:</b> set grip (pivot, no squeezing), seat height and snare height. Demonstrate the hand stroke slow and big before step 1. Is the student counting out loud?</p>
+  <p class="cta nl">Wil je dit samen oefenen, met iemand die meekijkt naar je handen en voeten? <a href="/#contact">Boek een proefles bij Drumhof (€20) →</a></p>
+  <p class="cta en">Want to practise this with someone watching your hands and feet? <a href="/en.html#contact">Book a trial lesson at Drumhof (€20) →</a></p>
+</section>
+
+<!-- ============ LES 2 ============ -->
+<section id="les-2">
+  <h2><span class="nl">Les 2: de basdrum verplaatsen</span><span class="en">Lesson 2: moving the bass drum</span></h2>
+  <p class="goal nl">Doel: de basdrum op andere tellen, terwijl je handen hetzelfde blijven doen. Tempo 90.</p>
+  <p class="goal en">Goal: the bass drum on different beats while your hands keep doing the same thing. Tempo 90.</p>
+  <p class="nl">De handen spelen steeds de beat van les 1. Alleen de rechtervoet verandert. Speel elke oefening 4 keer en tel hardop.</p>
+  <p class="en">The hands keep playing the lesson 1 beat. Only the right foot changes. Play each exercise 4 times and count out loud.</p>
+  <ol class="ex">
+    <li><b class="nl">Opwarmer: crash op 1, dan een gewone maat.</b><b class="en">Warm-up: crash on 1, then a normal bar.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=90&Measures=2&H=|c-x-x-x-|x-x-x-x-|&S=|----o---|----o---|&K=|o-------|o-------|"></div></li>
+    <li><b class="nl">Basdrum op 1 en 2.</b><b class="en">Bass drum on 1 and 2.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=90&Measures=1&H=|x-x-x-x-|&S=|----o---|&K=|o-o-----|"></div></li>
+    <li><b class="nl">Maat 1 op tel 1, maat 2 op tel 2.</b><b class="en">Bar 1 on beat 1, bar 2 on beat 2.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=90&Measures=2&H=|x-x-x-x-|x-x-x-x-|&S=|----o---|----o---|&K=|o-------|--o-----|"></div></li>
+    <li><b class="nl">Maat 1 op 1 en 4, maat 2 op 2.</b><b class="en">Bar 1 on 1 and 4, bar 2 on 2.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=90&Measures=2&H=|x-x-x-x-|x-x-x-x-|&S=|----o---|----o---|&K=|o-----o-|--o-----|"></div></li>
+    <li><b class="nl">Maat 1 op 1 en 4, maat 2 op 2 en 4.</b><b class="en">Bar 1 on 1 and 4, bar 2 on 2 and 4.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=90&Measures=2&H=|x-x-x-x-|x-x-x-x-|&S=|----o---|----o---|&K=|o-----o-|--o---o-|"></div></li>
+    <li><b class="nl">Fill en afsluiten met een crash.</b><b class="en">Fill and end with a crash.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=90&Measures=2&H=|--------|c-------|&S=|oo------|--------|&K=|--------|o-------|&T1=|--oo----|--------|&T2=|----oo--|--------|&T4=|------oo|--------|"></div></li>
+  </ol>
+  <ul class="nl">
+    <li>Als de basdrum verandert, mogen de handen niet mee veranderen. Lukt het niet? Speel eerst alleen hi-hat + basdrum.</li>
+    <li>Tel 2 zonder basdrum voelt vreemd. Tel luid: ‘één, TWEE, drie, vier’.</li>
+    <li>Na de laatste crash: laat hem uitklinken.</li>
+  </ul>
+  <ul class="en">
+    <li>When the bass drum changes, the hands must not change with it. Struggling? First play only hi-hat + bass drum.</li>
+    <li>Beat 2 without the bass drum feels strange. Count it loud: ‘one, TWO, three, four’.</li>
+    <li>After the last crash: let it ring.</li>
+  </ul>
+  <p class="done-when nl"><b>Klaar als…</b> je oefening 5 vier keer na elkaar speelt op 90, met de fill en de slot-crash.</p>
+  <p class="done-when en"><b>Done when…</b> you play exercise 5 four times in a row at 90, with the fill and the final crash.</p>
+  <p class="teacher nl"><b>Voor de leraar:</b> voettechniek (been doet het werk, bal van de voet blijft op het pedaal; heel down mag nog). Laat de leerling zelf een basdrumcombinatie verzinnen.</p>
+  <p class="teacher en"><b>For the teacher:</b> foot technique (the leg does the work, ball of the foot stays on the pedal; heel down is still fine). Let the student invent their own bass drum combination.</p>
+  <p class="cta nl">Wil je dit samen oefenen, met iemand die meekijkt naar je handen en voeten? <a href="/#contact">Boek een proefles bij Drumhof (€20) →</a></p>
+  <p class="cta en">Want to practise this with someone watching your hands and feet? <a href="/en.html#contact">Book a trial lesson at Drumhof (€20) →</a></p>
+</section>
+
+<!-- ============ LES 3 ============ -->
+<section id="les-3">
+  <h2><span class="nl">Les 3: achtste noten op de hi-hat</span><span class="en">Lesson 3: eighth notes on the hi-hat</span></h2>
+  <p class="goal nl">Doel: de standaard rockbeat, met de hi-hat op elke tel én de ‘en’. Tempo 100 (begin op 70).</p>
+  <p class="goal en">Goal: the standard rock beat, with the hi-hat on every beat and every ‘and’. Tempo 100 (start at 70).</p>
+  <p class="nl">Tel nu: ‘1 en 2 en 3 en 4 en’. De rechterhand speelt 8 slagen per maat.</p>
+  <p class="en">Now count: ‘1 and 2 and 3 and 4 and’. The right hand plays 8 strokes per bar.</p>
+  <ol class="ex">
+    <li><b class="nl">Alleen hi-hat in achtsten.</b><b class="en">Hi-hat only, in eighths.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=100&Measures=1&H=|xxxxxxxx|&S=|--------|&K=|--------|"></div></li>
+    <li><b class="nl">+ basdrum op 1, snare op 3.</b><b class="en">+ bass drum on 1, snare on 3.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=100&Measures=1&H=|xxxxxxxx|&S=|----o---|&K=|o-------|"></div></li>
+    <li><b class="nl">Rockbeat: basdrum op 1 en 3, snare op 2 en 4.</b><b class="en">Rock beat: bass drum on 1 and 3, snare on 2 and 4.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=100&Measures=1&H=|xxxxxxxx|&S=|--o---o-|&K=|o---o---|"></div></li>
+    <li><b class="nl">Basdrum op 1, 3 en ‘3 en’.</b><b class="en">Bass drum on 1, 3 and ‘3 and’.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=100&Measures=1&H=|xxxxxxxx|&S=|--o---o-|&K=|o---oo--|"></div></li>
+    <li><b class="nl">Basdrum op 1, ‘1 en’ en 3.</b><b class="en">Bass drum on 1, ‘1 and’ and 3.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=100&Measures=1&H=|xxxxxxxx|&S=|--o---o-|&K=|oo--o---|"></div></li>
+    <li><b class="nl">Alles in één keer.</b><b class="en">All in one go.</b>
+      <div class="gs" data-g="TimeSig=4/4&Div=8&Tempo=100&Measures=4&H=|cxxxxxxx|xxxxxxxx|xxxxxxxx|--------|&S=|--o---o-|--o---o-|--o---o-|oo------|&K=|o---o---|o---o---|o---oo--|--------|&T1=|--------|--------|--------|--oo----|&T2=|--------|--------|--------|----oo--|&T4=|--------|--------|--------|------oo|"></div></li>
+  </ol>
+  <ul class="nl">
+    <li>De snare op 2 en 4 is het belangrijkste: het hardst en het strakst.</li>
+    <li>Armen kruisen: de rechterhand ligt boven, op de hi-hat.</li>
+  </ul>
+  <ul class="en">
+    <li>The snare on 2 and 4 is the most important part: loudest and tightest.</li>
+    <li>Arms cross: the right hand is on top, on the hi-hat.</li>
+  </ul>
+  <p class="done-when nl"><b>Klaar als…</b> je oefening 6 vier keer na elkaar speelt op 100.</p>
+  <p class="done-when en"><b>Done when…</b> you play exercise 6 four times in a row at 100.</p>
+  <p class="teacher nl"><b>Voor de leraar:</b> gekruiste armen (hi-hatarm niet te hoog); blijft de hi-hat gelijk als de basdrum op de ‘en’ valt? Hierna: dynamiek of tweehandige hi-hat.</p>
+  <p class="teacher en"><b>For the teacher:</b> crossed arms (hi-hat arm not too high); does the hi-hat stay even when the bass drum lands on an ‘and’? Next: dynamics or two-handed hi-hat.</p>
+  <p class="cta nl">Wil je dit samen oefenen, met iemand die meekijkt naar je handen en voeten? <a href="/#contact">Boek een proefles bij Drumhof (€20) →</a></p>
+  <p class="cta en">Want to practise this with someone watching your hands and feet? <a href="/en.html#contact">Book a trial lesson at Drumhof (€20) →</a></p>
+</section>
+</main>
+<footer>&copy; 2026 Drumhof – Drumlessen in Gent · <a href="/" data-keep>drumhof.com</a></footer>
+
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  document.body.classList.toggle("teach", params.has("leraar"));
+  const store = {
+    get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  // ---------- language: ?lang=en, else last choice, else Dutch ----------
+  let lang = params.get("lang") || store.get("course:lang") || "nl";
+  function setLang(l) {
+    lang = l === "en" ? "en" : "nl";
+    document.body.classList.toggle("en", lang === "en");
+    document.documentElement.lang = lang;
+    document.querySelectorAll(".lang button[data-l]").forEach(b => b.classList.toggle("on", b.dataset.l === lang));
+    store.set("course:lang", lang);
+    sizeFrames();
+  }
+  document.querySelectorAll(".lang button[data-l]").forEach(b => b.addEventListener("click", () => setLang(b.dataset.l)));
+
+  // ---------- left-handed: ?hand=left, else last choice ----------
+  let lefty = (params.get("hand") || store.get("course:hand")) === "left";
+  const SWAP = { rechter: "linker", linker: "rechter", rechts: "links", links: "rechts", right: "left", left: "right" };
+  const WORDS = /\b(rechter|linker)|\b(rechts|links|right|left)\b/gi;
+  function swapWords(t) {
+    return t.replace(WORDS, w => {
+      const r = SWAP[w.toLowerCase()];
+      return w[0] === w[0].toUpperCase() ? r[0].toUpperCase() + r.slice(1) : r;
+    });
+  }
+  const original = new Map();
+  (function collect(node) {
+    if (node.nodeType === 1 && (node.hasAttribute("data-keep") || node.tagName === "SCRIPT" || node.tagName === "STYLE")) return;
+    if (node.nodeType === 3) { if (WORDS.test(node.nodeValue)) original.set(node, node.nodeValue); WORDS.lastIndex = 0; return; }
+    node.childNodes.forEach(collect);
+  })(document.querySelector("main"));
+  // Kit drawing: mirror the shapes, move the labels to the other side.
+  const kit = document.querySelector("svg.kit");
+  const kitW = kit ? kit.viewBox.baseVal.width : 0;
+  const kitTexts = kit ? [...kit.querySelectorAll(":scope > text")].map(t => ({ t, x: +t.getAttribute("x"), a: t.getAttribute("text-anchor") || "start" })) : [];
+  function setHand(left) {
+    lefty = left;
+    original.forEach((txt, node) => { node.nodeValue = lefty ? swapWords(txt) : txt; });
+    if (kit) {
+      kit.querySelector("g.mir").setAttribute("transform", lefty ? `translate(${kitW} 0) scale(-1 1)` : "");
+      kitTexts.forEach(({ t, x, a }) => {
+        t.setAttribute("x", lefty ? kitW - x : x);
+        t.setAttribute("text-anchor", lefty && a === "start" ? "end" : lefty && a === "end" ? "start" : a);
+      });
+    }
+    document.querySelector(".lang .hand").classList.toggle("on", lefty);
+    store.set("course:hand", lefty ? "left" : "right");
+    document.querySelectorAll(".gs").forEach(box => box._reload && box._reload());
+  }
+  document.querySelector(".lang .hand").addEventListener("click", () => setHand(!lefty));
+
+  // ---------- Groove Scribe players (same embed as the homework pages) ----------
+  const EMBED = "https://www.mikeslessons.com/groove/GrooveEmbed.html?";
+  const FULL = "https://www.mikeslessons.com/groove/?";
+  function sizeFrames() {
+    document.querySelectorAll(".gs iframe").forEach(f => {
+      const lines = +f.dataset.lines || 1;
+      const extra = /Stickings=[^&]*[RL]/.test(f.dataset.q) ? 20 : 0;
+      if (f.offsetWidth) f.style.height = Math.round(85 + (0.14 * f.offsetWidth + extra) * lines) + "px";
+    });
+  }
+  window.addEventListener("resize", sizeFrames);
+
+  const el = (tag, attrs, html) => { const n = document.createElement(tag); Object.assign(n, attrs || {}); if (html) n.innerHTML = html; return n; };
+  document.querySelectorAll(".gs").forEach(box => {
+    const base = box.dataset.g;
+    const target = +((base.match(/Tempo=(\d+)/) || [])[1]) || 80;
+    const bars = +((base.match(/Measures=(\d+)/) || [])[1]) || 1;
+    let bpm = target;
+
+    const label = el("span", { className: "bpm" });
+    const minus = el("button", { type: "button", textContent: "−5" });
+    const plus = el("button", { type: "button", textContent: "+5" });
+    const slider = el("input", { type: "range", min: Math.max(30, target - 40), max: target + 40, step: 5, value: target });
+    const goal = el("span", { className: "target" }, '<span class="nl">doel: ' + target + '</span><span class="en">goal: ' + target + '</span>');
+    const bar = el("div", { className: "tempo" }); bar.append(label, minus, slider, plus, goal);
+    const f = el("iframe", { loading: "lazy", title: "Groove Scribe" });
+    f.dataset.lines = bars;
+    const link = el("a", { target: "_blank", rel: "noopener" }, "Open in Groove Scribe ↗");
+    box.append(bar, f, link);
+
+    function query() {
+      let q = base.replace(/Tempo=\d+/, "Tempo=" + bpm);
+      if (lefty) q = q.replace(/Stickings=([^&]*)/, (m, st) => "Stickings=" + st.replace(/[RL]/g, c => c === "R" ? "L" : "R"));
+      return q;
+    }
+    function showLabel() { label.textContent = "♩ = " + bpm + " bpm"; slider.value = bpm; }
+    box._reload = function () {
+      const q = query();
+      f.dataset.q = q; f.src = EMBED + q; link.href = FULL + q;
+      showLabel(); sizeFrames();
+    };
+    slider.addEventListener("input", () => { bpm = +slider.value; showLabel(); });
+    slider.addEventListener("change", () => { bpm = +slider.value; box._reload(); });
+    minus.addEventListener("click", () => { bpm = Math.max(+slider.min, bpm - 5); box._reload(); });
+    plus.addEventListener("click", () => { bpm = Math.min(+slider.max, bpm + 5); box._reload(); });
+  });
+
+  // Only one groove plays at a time: when a player gets the click, reload the previous one.
+  let active = null;
+  window.addEventListener("blur", () => setTimeout(() => {
+    const f = document.activeElement;
+    if (!f || f.tagName !== "IFRAME") return;
+    if (active && active !== f && document.contains(active)) active.src = active.src;
+    active = f; f.blur(); window.focus();
+  }, 0));
+
+  setLang(lang);
+  setHand(lefty);
+  window.addEventListener("load", sizeFrames);
+})();
+</script>
+</body>
+</html>
