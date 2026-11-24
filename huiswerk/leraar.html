@@ -337,7 +337,8 @@ function studentCard(s) {
       el("div", { class: "row" },
         el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
         el("button", { onclick: () => copy(studentLink(s), "Link van " + (s.name || s.id) + " gekopieerd ✓") }, "🔗 Link"),
-        el("a", { class: "btn", href: studentLink(s), target: "_blank", rel: "noopener" }, "Bekijk"))),
+        el("a", { class: "btn", href: studentLink(s), target: "_blank", rel: "noopener" }, "Bekijk"),
+        el("button", { title: "Naam, taal, tarief en startsaldo", onclick: () => editStudent(s) }, "⚙️ Wijzigen"))),
     body);
 }
 
@@ -362,7 +363,8 @@ function editStudent(s) {
       el("div", { class: "grid2" },
         el("div", null, el("label", null, "Prijs per les (€)"), price),
         el("div", null, el("label", null, "Duur"), dur)),
-      el("label", null, "Startsaldo (€) ", el("span", { class: "muted" }, "— uit je oude sheet: + = tegoed, − = moet nog betalen")), opening) : null,
+      el("label", null, "Startsaldo (€) ", el("span", { class: "muted" }, "— uit je oude sheet: + = tegoed, − = moet nog betalen")), opening)
+      : el("p", { class: "small muted" }, "Tarief en startsaldo verschijnen hier zodra je de nieuwe database-regels gepubliceerd hebt (knop \"Regels kopiëren\" bovenaan de pagina)."),
     err,
     el("div", { class: "row", style: "margin-top:12px" },
       el("button", { class: "primary", onclick: save }, s ? "Opslaan" : "Toevoegen"),
