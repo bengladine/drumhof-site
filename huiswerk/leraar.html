@@ -50,6 +50,21 @@
            padding: 12px 18px; border-radius: 12px; font-weight: 700; z-index: 20; max-width: 92vw; }
   pre { background: #1d1d1b; color: #f6f4ef; padding: 12px; border-radius: 10px; overflow: auto; font-size: .8rem; }
   .error { color: #b3261e; font-weight: 600; }
+  .chip { display: inline-block; font-size: .8rem; font-weight: 700; padding: 2px 8px; border-radius: 99px;
+          background: var(--line); color: var(--ink); white-space: nowrap; }
+  .chip.owe { background: #fde3dd; color: #b3261e; }
+  .chip.credit { background: #dcf1e4; color: #1f6e40; }
+  .money { margin-top: 12px; border-top: 2px solid var(--line); padding-top: 10px; }
+  .money h3 { font-size: 1rem; margin: 0; }
+  .ledger { list-style: none; margin: 8px 0 0; padding: 0; font-size: .92rem; }
+  .ledger li { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center;
+               border-top: 1px solid var(--line); padding: 6px 0; }
+  .ledger .bal { font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 8px 0; }
+  .stat { background: var(--bg); border-radius: 12px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 1.2rem; }
+  .check { display: flex; gap: 8px; align-items: center; font-weight: 700; margin: 4px 0; }
+  .check input { width: auto; }
 </style>
 </head>
 <body>
@@ -67,8 +82,12 @@ const TYPES = ["Techniek", "Rudiment", "Groove", "Fill", "Groove + fill", "Song"
 
 const app = document.getElementById("app");
 let auth, db, A, F, user = null;
-let students = []; // [{id, name, lang, homework: [{id, ...}]}]
+let students = []; // [{id, name, lang, homework: [{id, ...}], priv: {price, duration, opening}, entries: [...]}]
 const open = {};   // which students are unfolded
+const showAll = {}; // which students show their full ledger
+let ledgerOK = true; // false while the Firestore rules don't cover the private (money) data yet
+const DURATIONS = [30, 45, 60, 90, 120];
+const METHODS = ["Cash", "Overschrijving", "Payconiq", "Andere"];
 
 // ---------- helpers ----------
 function el(tag, attrs, ...kids) {
@@ -103,6 +122,24 @@ async function copy(text, msg) {
   try { await navigator.clipboard.writeText(text); toast(msg || "Gekopieerd ✓"); }
   catch (e) { prompt("Kopieer:", text); }
 }
+// ---------- money ----------
+const num = v => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : 0; };
+const eur = n => "€" + (Math.round(n * 100) / 100).toLocaleString("nl-BE", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 });
+// Saldo: what they paid minus what their lessons cost. Positive = credit (tegoed), negative = they owe you.
+function balance(s) {
+  return num(s.priv.opening) + s.entries.reduce((t, e) => t + num(e.paid) - num(e.price), 0);
+}
+function balanceChip(s) {
+  const b = balance(s);
+  if (Math.abs(b) < 0.005) return el("span", { class: "chip" }, "Saldo €0");
+  return b > 0 ? el("span", { class: "chip credit" }, "Tegoed " + eur(b))
+               : el("span", { class: "chip owe" }, "Te betalen " + eur(-b));
+}
+function balanceText(b) {
+  if (Math.abs(b) < 0.005) return "€0";
+  return b > 0 ? "+" + eur(b) : "−" + eur(-b);
+}
+
 // Tempo steps from a Drumsheet link: ~70% → ~85% → the tempo in the link, rounded to 5
 function tempoSteps(url) {
   const t = +((url.match(/[?&]Tempo=(\d+)/) || [])[1]);
@@ -147,6 +184,10 @@ service cloud.firestore {
         allow write: if isTeacher();
       }
     }
+    // Boekhouding (rates, lessons, payments): only the teacher can read or write
+    match /private/{document=**} {
+      allow read, write: if isTeacher();
+    }
   }
 }`;
 }
@@ -182,9 +223,90 @@ function mainScreen() {
   }
   for (const s of students) list.append(studentCard(s));
 
-  screen(head, list,
+  screen(head, ledgerOK ? overviewCard() : rulesBanner(), list,
     el("div", { class: "row", style: "margin-top:8px" },
       el("button", { onclick: addStudentForm }, "＋ Leerling")));
+}
+
+function rulesBanner() {
+  const txt = rulesText(user.email);
+  return el("div", { class: "card" },
+    el("p", null, el("strong", null, "Boekhouding: nog één stap."), " De database-regels moeten bijgewerkt worden zodat alleen jij de betalingen kan zien."),
+    el("p", { class: "small muted" }, "Firebase console → Firestore Database → Rules → alles vervangen → Publish → even wachten → herladen."),
+    el("div", { class: "row" },
+      el("button", { class: "primary", onclick: () => copy(txt, "Regels gekopieerd ✓") }, "Regels kopiëren"),
+      el("button", { onclick: () => location.reload() }, "Herladen")));
+}
+
+function overviewCard() {
+  const now = new Date();
+  const ym = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+  // school year starts 1 September
+  const syStart = (now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1) + "-09-01";
+  let owed = 0, nOwe = 0, credit = 0, paidMonth = 0, lessonsMonth = 0, paidYear = 0;
+  for (const s of students) {
+    const b = balance(s);
+    if (b < -0.005) { owed -= b; nOwe++; } else if (b > 0.005) credit += b;
+    for (const e of s.entries) {
+      if ((e.date || "").startsWith(ym)) { paidMonth += num(e.paid); if (num(e.price) > 0) lessonsMonth++; }
+      if ((e.date || "") >= syStart) paidYear += num(e.paid);
+    }
+  }
+  return el("section", { class: "card" },
+    el("div", { class: "student-head" }, el("h2", null, "Boekhouding"),
+      el("button", { class: "ghost small", onclick: exportCSV }, "⬇︎ CSV")),
+    el("div", { class: "stats" },
+      el("div", { class: "stat" }, el("span", { class: "small muted" }, "Te innen"), el("b", { style: owed ? "color:#b3261e" : "" }, eur(owed)),
+        el("span", { class: "small muted" }, nOwe ? nOwe + " leerling" + (nOwe === 1 ? "" : "en") : "niemand")),
+      el("div", { class: "stat" }, el("span", { class: "small muted" }, "Tegoed (vooraf betaald)"), el("b", null, eur(credit))),
+      el("div", { class: "stat" }, el("span", { class: "small muted" }, "Ontvangen deze maand"), el("b", null, eur(paidMonth)),
+        el("span", { class: "small muted" }, lessonsMonth + " les" + (lessonsMonth === 1 ? "" : "sen"))),
+      el("div", { class: "stat" }, el("span", { class: "small muted" }, "Ontvangen dit schooljaar"), el("b", null, eur(paidYear)))));
+}
+
+function exportCSV() {
+  const q = v => { const t = String(v ?? ""); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const dec = n => num(n) ? String(num(n)).replace(".", ",") : "";
+  const rows = [["Datum", "Leerling", "Duur (min)", "Lesprijs", "Betaald", "Methode", "Notitie"]];
+  const all = [];
+  for (const s of students) for (const e of s.entries) all.push([e.date, s.name || s.id, e.duration || "", dec(e.price), dec(e.paid), e.method || "", e.note || ""]);
+  all.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  const csv = "﻿" + rows.concat(all).map(r => r.map(q).join(";")).join("\r\n");
+  const a = el("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "boekhouding-drumhof-" + todayISO() + ".csv" });
+  document.body.append(a); a.click(); a.remove();
+}
+
+function ledgerSection(s) {
+  if (!ledgerOK) return null;
+  // running balance, oldest → newest
+  const asc = s.entries.slice().reverse();
+  let run = num(s.priv.opening);
+  const runAfter = new Map();
+  for (const e of asc) { run += num(e.paid) - num(e.price); runAfter.set(e.id, run); }
+  const shown = showAll[s.id] ? s.entries : s.entries.slice(0, 6);
+  const rate = s.priv.price ? eur(num(s.priv.price)) + " / " + (s.priv.duration || 60) + " min" : "nog geen tarief";
+  return el("div", { class: "money" },
+    el("div", { class: "student-head" },
+      el("h3", null, "Lessen & betalingen ", el("span", { class: "small muted", style: "font-weight:400" }, "· " + rate)),
+      el("div", { class: "row" },
+        el("button", { onclick: () => entryForm(s, null, "les") }, "＋ Les"),
+        el("button", { onclick: () => entryForm(s, null, "betaling") }, "＋ Betaling"))),
+    el("ul", { class: "ledger" },
+      shown.length ? shown.map(e => {
+        const parts = [];
+        if (num(e.price)) parts.push("Les" + (e.duration ? " " + e.duration + " min" : "") + " " + eur(num(e.price)));
+        if (num(e.paid)) parts.push("betaald " + eur(num(e.paid)) + (e.method ? " (" + e.method.toLowerCase() + ")" : ""));
+        return el("li", null,
+          el("span", null, el("strong", null, dateLabel(e.date, "nl")), " · ", parts.join(" · ") || "—",
+            e.note ? el("span", { class: "muted" }, " · " + e.note) : null),
+          el("span", { class: "bal " + (runAfter.get(e.id) < -0.005 ? "error" : "muted") }, balanceText(runAfter.get(e.id))),
+          el("span", { class: "row" },
+            el("button", { class: "ghost", title: "Bewerken", onclick: () => entryForm(s, e) }, "✏️"),
+            el("button", { class: "ghost", title: "Verwijderen", onclick: () => removeEntry(s, e) }, "🗑️")));
+      }) : el("li", { class: "muted", style: "display:block" }, "Nog niets gelogd." +
+        (num(s.priv.opening) ? " Startsaldo: " + balanceText(num(s.priv.opening)) + "." : ""))),
+    s.entries.length > 6 ? el("button", { class: "ghost small", onclick: () => { showAll[s.id] = !showAll[s.id]; mainScreen(); } },
+      showAll[s.id] ? "Minder tonen" : "Alles tonen (" + s.entries.length + ")") : null);
 }
 
 function studentCard(s) {
@@ -201,13 +323,14 @@ function studentCard(s) {
         : el("li", { class: "muted" }, "Nog geen huiswerk.")),
     el("div", { class: "row small", style: "margin-top:8px" },
       el("span", { class: "muted" }, "Taal pagina: " + (s.lang === "en" ? "Engels" : "Nederlands")),
-      el("button", { class: "ghost", onclick: () => editStudent(s) }, "Wijzigen")));
+      el("button", { class: "ghost", onclick: () => editStudent(s) }, "Wijzigen")),
+    ledgerSection(s));
 
   return el("section", { class: "card" },
     el("div", { class: "student-head" },
       el("button", { class: "ghost", style: "padding-left:0;text-align:left",
         onclick: () => { open[s.id] = !open[s.id]; body.style.display = open[s.id] ? "" : "none"; } },
-        el("h2", null, s.name || s.id),
+        el("h2", null, s.name || s.id, " ", ledgerOK ? balanceChip(s) : null),
         el("span", { class: "small muted", style: "font-weight:400" },
           last ? "Laatste: " + (last.date || dateLabel(last.id, s.lang)) + " · " + hw.length + " opdracht" + (hw.length === 1 ? "" : "en")
                : "Nog geen huiswerk")),
@@ -225,12 +348,21 @@ function editStudent(s) {
   const lang = el("select", null,
     el("option", { value: "nl" }, "Nederlands"), el("option", { value: "en" }, "Engels"));
   lang.value = s ? s.lang || "nl" : "nl";
+  const pv = (s && s.priv) || {};
+  const price = el("input", { inputmode: "decimal", value: pv.price ?? "", placeholder: "bv. 35" });
+  const dur = durationSelect(pv.duration || 60);
+  const opening = el("input", { inputmode: "decimal", value: pv.opening ?? "", placeholder: "0" });
   const err = el("p", { class: "error" });
   const ov = el("div", { class: "overlay" }, el("div", { class: "sheet" },
     el("h2", null, s ? "Leerling wijzigen" : "Nieuwe leerling"),
     el("label", null, "Naam"), name,
     el("label", null, "Taal van de pagina"), lang,
     s ? el("p", { class: "small muted" }, "Link blijft: " + studentLink(s)) : null,
+    ledgerOK ? el("fieldset", null, el("legend", null, "Tarief ", el("span", { class: "muted small" }, "(alleen voor jou)")),
+      el("div", { class: "grid2" },
+        el("div", null, el("label", null, "Prijs per les (€)"), price),
+        el("div", null, el("label", null, "Duur"), dur)),
+      el("label", null, "Startsaldo (€) ", el("span", { class: "muted" }, "— uit je oude sheet: + = tegoed, − = moet nog betalen")), opening) : null,
     err,
     el("div", { class: "row", style: "margin-top:12px" },
       el("button", { class: "primary", onclick: save }, s ? "Opslaan" : "Toevoegen"),
@@ -242,6 +374,8 @@ function editStudent(s) {
     if (!s && students.some(x => x.id === id)) { err.textContent = "Er is al een leerling met link ?s=" + id + "."; return; }
     try {
       await F.setDoc(F.doc(db, "students", id), { name: nm, lang: lang.value }, { merge: true });
+      if (ledgerOK) await F.setDoc(F.doc(db, "private", id),
+        { price: price.value.trim() === "" ? null : num(price.value), duration: +dur.value, opening: num(opening.value) }, { merge: true });
       ov.remove(); await reload();
       if (!s) toast("Link: " + studentLink({ id }));
     } catch (e) { err.textContent = "Opslaan mislukt: " + e.message; }
@@ -303,6 +437,10 @@ function homeworkForm(s, existing) {
   function renumber() { blocks.forEach((f, i) => { f.box.querySelector("legend").textContent = "Oefening " + (i + 1); }); }
   exercises.forEach(addEx);
 
+  // the lesson + payment that go with this homework (private, only for the teacher)
+  const linked = existing ? s.entries.find(e => e.hw === existing.id) : null;
+  const money = ledgerOK ? lessonFields(s, linked, !existing || !!linked) : null;
+
   const saveBtn = el("button", { class: "primary", onclick: save }, existing ? "Opslaan" : "Toevoegen");
   const ov = el("div", { class: "overlay" }, el("div", { class: "sheet" },
     el("h2", null, (existing ? "Huiswerk wijzigen – " : "Huiswerk voor ") + (s.name || s.id)),
@@ -310,6 +448,7 @@ function homeworkForm(s, existing) {
     el("div", { class: "grid2" },
       el("div", null, el("label", null, "Datum van de les"), date),
       el("div", null, el("label", null, "Titel ", el("span", { class: "muted" }, "(optioneel)")), title)),
+    money ? money.box : null,
     el("label", null, "Algemene notities ", el("span", { class: "muted" }, "(optioneel)")), notes,
     exList,
     el("button", { onclick: () => addEx({}) }, "＋ Oefening"),
@@ -359,6 +498,15 @@ function homeworkForm(s, existing) {
     try {
       await F.setDoc(F.doc(db, "students", s.id, "homework", id), doc);
       if (existing && existing.id !== id) await F.deleteDoc(F.doc(db, "students", s.id, "homework", existing.id));
+      if (money) {
+        const entryId = linked ? linked.id : "hw-" + id;
+        if (money.on.checked) {
+          await F.setDoc(F.doc(db, "private", s.id, "lessen", entryId), Object.assign(money.values(), {
+            date: d, hw: id, note: exs.map(e => e.title).join(", ").slice(0, 120), updated: F.serverTimestamp() }));
+        } else if (linked) {
+          await F.deleteDoc(F.doc(db, "private", s.id, "lessen", linked.id));
+        }
+      }
       ov.remove();
       open[s.id] = true;
       await reload();
@@ -371,6 +519,99 @@ async function removeHomework(s, h) {
   if (!confirm("Huiswerk van " + (h.date || h.id) + " voor " + (s.name || s.id) + " verwijderen? Dit kan niet ongedaan gemaakt worden.")) return;
   try { await F.deleteDoc(F.doc(db, "students", s.id, "homework", h.id)); await reload(); toast("Verwijderd"); }
   catch (e) { alert("Verwijderen mislukt: " + e.message); }
+}
+
+// ---------- lessons & payments ----------
+function durationSelect(value) {
+  const opts = DURATIONS.includes(+value) ? DURATIONS : DURATIONS.concat(+value).sort((a, b) => a - b);
+  const sel = el("select", null, opts.map(m => el("option", { value: m }, m + " min")));
+  sel.value = String(value || 60);
+  return sel;
+}
+
+// Fields for one lesson and/or payment.
+// mode "hw": one checkbox turns the whole block on/off (used inside the homework form).
+// mode "entry": the checkbox says whether a lesson was given; the payment fields always show.
+function lessonFields(s, entry, lessonOn, mode = "hw") {
+  const pv = s.priv || {};
+  const hadLesson = entry ? num(entry.price) > 0 || !!entry.duration : lessonOn;
+  const on = el("input", { type: "checkbox" }); on.checked = mode === "hw" ? lessonOn : hadLesson;
+  const dur = durationSelect((entry && entry.duration) || pv.duration || 60);
+  const price = el("input", { inputmode: "decimal", value: entry && num(entry.price) ? entry.price : (pv.price ?? ""), placeholder: "€" });
+  const paid = el("input", { inputmode: "decimal", value: entry && num(entry.paid) ? entry.paid : "", placeholder: "0" });
+  const method = el("select", null, METHODS.map(m => el("option", { value: m }, m)));
+  method.value = (entry && entry.method) || "Cash";
+  const b = balance(s) + (entry ? num(entry.price) - num(entry.paid) : 0); // saldo before this entry
+  const hint = el("p", { class: "small muted", style: "margin:6px 0 0" });
+  const updHint = () => {
+    const after = b + num(paid.value) - (mode === "entry" && !on.checked ? 0 : num(price.value));
+    hint.textContent = "Saldo nu " + balanceText(b) + " → daarna " + balanceText(after);
+  };
+  const fullBtn = el("button", { class: "ghost small", type: "button", onclick: () => { paid.value = price.value; updHint(); } }, "= lesprijs");
+  const lessonRow = el("div", { class: "grid2" },
+    el("div", null, el("label", null, "Duur"), dur),
+    el("div", null, el("label", null, "Lesprijs (€)"), price));
+  const payRow = el("div", { class: "grid2" },
+    el("div", null, el("label", null, "Vandaag betaald (€) ", fullBtn), paid),
+    el("div", null, el("label", null, "Hoe"), method));
+  const inner = el("div", null, mode === "hw" ? lessonRow : null, payRow, hint);
+  const sync = () => {
+    if (mode === "hw") inner.style.display = on.checked ? "" : "none";
+    else lessonRow.style.display = on.checked ? "" : "none";
+    updHint();
+  };
+  [on, price, paid].forEach(x => x.addEventListener("input", sync));
+  on.addEventListener("change", sync);
+  const box = el("fieldset", null,
+    el("legend", null, "Les & betaling ", el("span", { class: "muted small", style: "font-weight:400" }, "(alleen voor jou)")),
+    el("label", { class: "check" }, on, mode === "hw" ? "Les loggen in de boekhouding" : "Er was een les"),
+    mode === "entry" ? lessonRow : null,
+    inner);
+  sync();
+  return {
+    box, on,
+    values: () => {
+      const lesson = mode === "hw" || on.checked;
+      return { duration: lesson ? +dur.value : null, price: lesson ? num(price.value) : 0,
+               paid: num(paid.value), method: num(paid.value) ? method.value : null };
+    }
+  };
+}
+
+function entryForm(s, existing, kind) {
+  const isLesson = existing ? num(existing.price) > 0 || !!existing.duration : kind === "les";
+  const date = el("input", { type: "date", value: existing ? existing.date : todayISO() });
+  const f = lessonFields(s, existing, isLesson, "entry");
+  const note = el("input", { value: existing ? existing.note || "" : "", placeholder: isLesson ? "bv. inhaalles, wat jullie deden" : "bv. 4 lessen vooraf" });
+  const err = el("p", { class: "error" });
+  const saveBtn = el("button", { class: "primary", onclick: save }, existing ? "Opslaan" : "Toevoegen");
+  const ov = el("div", { class: "overlay" }, el("div", { class: "sheet" },
+    el("h2", null, (existing ? "Wijzigen – " : (kind === "betaling" ? "Betaling – " : "Les – ")) + (s.name || s.id)),
+    el("label", null, "Datum"), date,
+    f.box,
+    el("label", null, "Notitie ", el("span", { class: "muted" }, "(optioneel)")), note,
+    existing && existing.hw ? el("p", { class: "small muted" }, "Hoort bij het huiswerk van " + dateLabel(existing.hw, "nl") + ".") : null,
+    err,
+    el("div", { class: "row", style: "margin-top:12px" }, saveBtn, el("button", { onclick: () => ov.remove() }, "Annuleren"))));
+  document.body.append(ov);
+  async function save() {
+    const v = f.values();
+    if (!v.price && !v.paid) { err.textContent = "Vul een lesprijs of een betaald bedrag in."; return; }
+    const data = Object.assign(v, { date: date.value || todayISO(), note: note.value.trim(), updated: F.serverTimestamp() });
+    if (existing && existing.hw) data.hw = existing.hw;
+    saveBtn.disabled = true;
+    try {
+      if (existing) await F.setDoc(F.doc(db, "private", s.id, "lessen", existing.id), data);
+      else await F.addDoc(F.collection(db, "private", s.id, "lessen"), data);
+      ov.remove(); open[s.id] = true; await reload(); toast("Opgeslagen ✓");
+    } catch (e) { saveBtn.disabled = false; err.textContent = "Opslaan mislukt: " + e.message; }
+  }
+}
+
+async function removeEntry(s, e) {
+  if (!confirm("Deze regel van " + dateLabel(e.date, "nl") + " (" + (s.name || s.id) + ") verwijderen? Dit kan niet ongedaan gemaakt worden.")) return;
+  try { await F.deleteDoc(F.doc(db, "private", s.id, "lessen", e.id)); open[s.id] = true; await reload(); toast("Verwijderd"); }
+  catch (err) { alert("Verwijderen mislukt: " + err.message); }
 }
 
 // ---------- one-time import from the old GitHub pages ----------
@@ -404,11 +645,22 @@ async function importOld() {
 // ---------- data ----------
 async function reload() {
   const snap = await F.getDocs(F.collection(db, "students"));
+  ledgerOK = true;
+  // money data is separate and teacher-only; old rules refuse it → show the rules banner, keep homework working
+  const priv = async p => {
+    try { return await p; }
+    catch (e) { if (e.code === "permission-denied") { ledgerOK = false; return null; } throw e; }
+  };
   const list = await Promise.all(snap.docs.map(async d => {
-    const hw = await F.getDocs(F.collection(db, "students", d.id, "homework"));
+    const [hw, pv, ls] = await Promise.all([
+      F.getDocs(F.collection(db, "students", d.id, "homework")),
+      priv(F.getDoc(F.doc(db, "private", d.id))),
+      priv(F.getDocs(F.collection(db, "private", d.id, "lessen")))]);
     const homework = hw.docs.map(h => Object.assign({ id: h.id }, h.data()))
       .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
-    return Object.assign({ id: d.id }, d.data(), { homework });
+    const entries = ls ? ls.docs.map(e => Object.assign({ id: e.id }, e.data()))
+      .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.id < b.id ? 1 : -1))) : [];
+    return Object.assign({ id: d.id }, d.data(), { homework, priv: (pv && pv.exists() && pv.data()) || {}, entries });
   }));
   students = list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
   mainScreen();
