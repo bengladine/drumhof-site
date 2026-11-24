@@ -8,10 +8,10 @@
 - Grooves play in the Drumsheet embed (`PLAYER` in `index.html`). Change that one line to move the player, e.g. to drumsheet.app.
 
 ## One-time Firebase setup (Ben, ~10 min)
-1. console.firebase.google.com → **Add project** (e.g. `drumhof`), Analytics off. The same project can later hold Drumsheet accounts.
+1. console.firebase.google.com → **Add project** (e.g. `drumhof`), Analytics off.  Use your own (Drumhof) Google account; Drumsheet gets its own project under its own account.
 2. **Build → Firestore Database → Create database** → location `eur3 (europe-west)` → production mode.
 3. **Build → Authentication → Get started → Google** → enable → save.
-4. **Authentication → Settings → Authorized domains** → add `drumhof.com` (later also `drumsheet.app`).
+4. **Authentication → Settings → Authorized domains** → add `drumhof.com`.
 5. **Project settings (gear) → Your apps → Web `</>`** → register app → copy the `firebaseConfig` block → send it to Claude (it goes into `firebase-config.js`; it's public by design).
 6. Open the teacher page, sign in. It shows the database rules with your email filled in → **Firestore → Rules** → paste → **Publish** → reload.
 7. Press **Bestaande leerlingen importeren** once. After that the old GitHub JSON files and the nightly Drive sync are no longer used.
