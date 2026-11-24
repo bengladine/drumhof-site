@@ -5,7 +5,7 @@
 - Data: Firebase Firestore (`students/<name>` and `students/<name>/homework/<date>`). Homework is live as soon as you press Add.
 - Until Firebase is connected (`firebase-config.js` is `null`), student pages read the old files at bengladine.github.io/drumhomework.
 - Old links (`bengladine.github.io/drumhomework/?s=…`) redirect here and take the student's ticks/streak along.
-- Grooves play in the Drumsheet embed (`PLAYER` in `index.html`). Change that one line to move the player, e.g. to drumsheet.app.
+- Grooves play in the Drumsheet embed on drumsheet.app (`PLAYER` in `index.html`).
 
 ## One-time Firebase setup (Ben, ~10 min)
 1. console.firebase.google.com → **Add project** (e.g. `drumhof`), Analytics off.  Use your own (Drumhof) Google account; Drumsheet gets its own project under its own account.
