@@ -6,6 +6,11 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Huiswerk – leraar</title>
 <link rel="icon" href="/img/favicon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="leraar.webmanifest">
+<meta name="theme-color" content="#f6f4ef">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Drumhof">
 <style>
   :root {
     --bg: #f6f4ef; --card: #fff; --ink: #1d1d1b; --muted: #6b6860;
@@ -670,7 +675,13 @@ async function reload() {
 
 async function signIn() {
   try { await A.signInWithPopup(auth, new A.GoogleAuthProvider()); }
-  catch (e) { signInScreen("Inloggen mislukt: " + e.message); }
+  catch (e) {
+    // popups can be blocked in a home-screen app → fall back to a full-page redirect
+    if (/popup|operation-not-supported|web-storage/.test(e.code || "")) {
+      try { return await A.signInWithRedirect(auth, new A.GoogleAuthProvider()); } catch (e2) { e = e2; }
+    }
+    signInScreen("Inloggen mislukt: " + e.message);
+  }
 }
 
 // ---------- boot ----------

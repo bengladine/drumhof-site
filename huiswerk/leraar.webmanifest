@@ -1,0 +1,15 @@
+{
+  "id": "/huiswerk/leraar.html",
+  "name": "Drumhof – leraar",
+  "short_name": "Drumhof",
+  "start_url": "/huiswerk/leraar.html",
+  "scope": "/huiswerk/",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#f6f4ef",
+  "icons": [
+    { "src": "/img/favicon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}
