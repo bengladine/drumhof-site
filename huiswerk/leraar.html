@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Huiswerk – leraar</title>
+<link rel="icon" href="/img/favicon-192.png" type="image/png">
+<style>
+  :root {
+    --bg: #f6f4ef; --card: #fff; --ink: #1d1d1b; --muted: #6b6860;
+    --accent: #e4572e; --ok: #2e9e5b; --line: #e3dfd6; --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px 14px 64px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  h1 { font-size: 1.5rem; margin: 8px 0; }
+  h2 { font-size: 1.15rem; margin: 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: .85rem; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 14px 16px;
+          margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  button, .btn { font: inherit; font-weight: 700; border-radius: 10px; padding: 9px 14px; cursor: pointer;
+                 border: 2px solid var(--ink); background: #fff; color: var(--ink); text-decoration: none;
+                 display: inline-block; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.ghost { border-color: transparent; background: transparent; padding: 6px 8px; }
+  button.danger { border-color: #b3261e; color: #b3261e; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .student-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .hw-list { list-style: none; margin: 10px 0 0; padding: 0; }
+  .hw-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                border-top: 1px solid var(--line); padding: 8px 0; }
+  label { display: block; font-weight: 600; font-size: .9rem; margin: 10px 0 4px; }
+  label .muted { font-weight: 400; }
+  input, textarea, select { width: 100%; font: inherit; padding: 9px 10px; border: 2px solid var(--line);
+                            border-radius: 10px; background: #fff; color: var(--ink); }
+  textarea { min-height: 70px; resize: vertical; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--ink); }
+  fieldset { border: 2px solid var(--line); border-radius: 14px; padding: 6px 14px 14px; margin: 14px 0; }
+  legend { font-weight: 800; padding: 0 6px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 520px) { .grid2 { grid-template-columns: 1fr; } }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 10; overflow: auto; padding: 16px 10px; }
+  .sheet { max-width: 680px; margin: 0 auto; background: var(--bg); border-radius: var(--radius); padding: 16px; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ok); color: #fff;
+           padding: 12px 18px; border-radius: 12px; font-weight: 700; z-index: 20; max-width: 92vw; }
+  pre { background: #1d1d1b; color: #f6f4ef; padding: 12px; border-radius: 10px; overflow: auto; font-size: .8rem; }
+  .error { color: #b3261e; font-weight: 600; }
+</style>
+</head>
+<body>
+<main id="app"><p class="muted">Laden…</p></main>
+
+<script type="module">
+import { firebaseConfig } from "./firebase-config.js";
+
+const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
+const SITE = location.origin + location.pathname.replace(/[^/]*$/, ""); // …/huiswerk/
+const OLD = "https://bengladine.github.io/drumhomework/";
+// Students that already have a page on the old GitHub site (for the one-time import)
+const OLD_STUDENTS = ["oji", "casper", "clea", "fjore", "bram", "frank", "marie", "ben", "voorbeeld"];
+const TYPES = ["Techniek", "Rudiment", "Groove", "Fill", "Groove + fill", "Song", "Lezen", "Coördinatie"];
+
+const app = document.getElementById("app");
+let auth, db, A, F, user = null;
+let students = []; // [{id, name, lang, homework: [{id, ...}]}]
+const open = {};   // which students are unfolded
+
+// ---------- helpers ----------
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const k in attrs || {}) {
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (k === "value") n.value = v;
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) n.append(k);
+  return n;
+}
+const lines = s => (s || "").split("\n").map(x => x.trim()).filter(Boolean);
+const slug = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+const pad = n => String(n).padStart(2, "0");
+const todayISO = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const studentLink = s => SITE + "?s=" + s.id;
+function dateLabel(iso, lang) {
+  const d = new Date(iso.slice(0, 10) + "T12:00:00");
+  if (isNaN(d)) return iso;
+  return d.toLocaleDateString(lang === "en" ? "en-GB" : "nl-BE", { day: "numeric", month: "short" }).replace(".", "");
+}
+function toast(msg) {
+  const t = el("div", { class: "toast" }, msg);
+  document.body.append(t);
+  setTimeout(() => t.remove(), 3500);
+}
+async function copy(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg || "Gekopieerd ✓"); }
+  catch (e) { prompt("Kopieer:", text); }
+}
+// Tempo steps from a Drumsheet link: ~70% → ~85% → the tempo in the link, rounded to 5
+function tempoSteps(url) {
+  const t = +((url.match(/[?&]Tempo=(\d+)/) || [])[1]);
+  if (!t) return [];
+  const r5 = x => Math.max(30, Math.round(x / 5) * 5);
+  return [...new Set([r5(t * 0.7), r5(t * 0.85), t])].sort((a, b) => a - b);
+}
+
+// ---------- screens ----------
+function screen(...kids) { app.textContent = ""; app.append(...kids); }
+
+function setupScreen() {
+  screen(el("h1", null, "Huiswerk – leraar"),
+    el("div", { class: "card" },
+      el("p", null, el("strong", null, "De database is nog niet gekoppeld.")),
+      el("p", { class: "muted" }, "Maak een Firebase-project aan en stuur de config door (zie README in de huiswerk-map). Tot dan lezen de leerlingenpagina's nog de oude bestanden op GitHub.")));
+}
+
+function signInScreen(err) {
+  screen(el("h1", null, "Huiswerk – leraar"),
+    el("div", { class: "card" },
+      el("p", null, "Log in met je Google-account om huiswerk toe te voegen."),
+      el("button", { class: "primary", onclick: signIn }, "Inloggen met Google"),
+      err ? el("p", { class: "error" }, err) : null));
+}
+
+function rulesText(email) {
+  return `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isTeacher() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == "${email.toLowerCase()}";
+    }
+    // Drumsheet accounts (later): everyone sees only their own grooves
+    match /users/{uid}/{rest=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+    // Drum homework: a student opens their own page by link; only the teacher writes
+    match /students/{student} {
+      allow get: if true;
+      allow list, write: if isTeacher();
+      match /homework/{id} {
+        allow read: if true;
+        allow write: if isTeacher();
+      }
+    }
+  }
+}`;
+}
+
+function rulesScreen() {
+  const txt = rulesText(user.email);
+  screen(el("h1", null, "Nog één stap"),
+    el("div", { class: "card" },
+      el("p", null, "Je bent ingelogd als ", el("strong", null, user.email), ", maar de database laat je nog niet schrijven."),
+      el("ol", null,
+        el("li", null, "Kopieer de regels hieronder."),
+        el("li", null, "Firebase console → Firestore Database → tab ", el("strong", null, "Rules"), " → alles vervangen → ", el("strong", null, "Publish"), "."),
+        el("li", null, "Wacht een halve minuut en herlaad deze pagina.")),
+      el("div", { class: "row" },
+        el("button", { class: "primary", onclick: () => copy(txt, "Regels gekopieerd ✓") }, "Regels kopiëren"),
+        el("button", { onclick: () => location.reload() }, "Herladen"),
+        el("button", { class: "ghost", onclick: () => A.signOut(auth) }, "Uitloggen")),
+      el("pre", null, txt)));
+}
+
+function mainScreen() {
+  const head = el("header", null,
+    el("h1", null, "Huiswerk"),
+    el("div", { class: "row small muted" }, user.email,
+      el("button", { class: "ghost", onclick: () => A.signOut(auth) }, "Uitloggen")));
+
+  const list = el("div");
+  if (!students.length) {
+    list.append(el("div", { class: "card" },
+      el("p", null, el("strong", null, "Nog geen leerlingen in de database.")),
+      el("p", { class: "muted" }, "Haal je huidige leerlingen en hun huiswerk één keer over van de oude GitHub-pagina's (" + OLD_STUDENTS.join(", ") + ")."),
+      el("button", { class: "primary", onclick: importOld }, "Bestaande leerlingen importeren")));
+  }
+  for (const s of students) list.append(studentCard(s));
+
+  screen(head, list,
+    el("div", { class: "row", style: "margin-top:8px" },
+      el("button", { onclick: addStudentForm }, "＋ Leerling")));
+}
+
+function studentCard(s) {
+  const hw = s.homework;
+  const last = hw[0];
+  const body = el("div", { style: open[s.id] ? "" : "display:none" },
+    el("ul", { class: "hw-list" },
+      hw.length ? hw.map(h => el("li", null,
+        el("span", null, el("strong", null, h.date || dateLabel(h.id, s.lang)), " · ",
+          h.title || (h.exercises ? h.exercises.map(e => e.title).join(", ") : h.goal) || ""),
+        el("span", { class: "row" },
+          el("button", { class: "ghost", title: "Bewerken", onclick: () => homeworkForm(s, h) }, "✏️"),
+          el("button", { class: "ghost", title: "Verwijderen", onclick: () => removeHomework(s, h) }, "🗑️"))))
+        : el("li", { class: "muted" }, "Nog geen huiswerk.")),
+    el("div", { class: "row small", style: "margin-top:8px" },
+      el("span", { class: "muted" }, "Taal pagina: " + (s.lang === "en" ? "Engels" : "Nederlands")),
+      el("button", { class: "ghost", onclick: () => editStudent(s) }, "Wijzigen")));
+
+  return el("section", { class: "card" },
+    el("div", { class: "student-head" },
+      el("button", { class: "ghost", style: "padding-left:0;text-align:left",
+        onclick: () => { open[s.id] = !open[s.id]; body.style.display = open[s.id] ? "" : "none"; } },
+        el("h2", null, s.name || s.id),
+        el("span", { class: "small muted", style: "font-weight:400" },
+          last ? "Laatste: " + (last.date || dateLabel(last.id, s.lang)) + " · " + hw.length + " opdracht" + (hw.length === 1 ? "" : "en")
+               : "Nog geen huiswerk")),
+      el("div", { class: "row" },
+        el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
+        el("button", { onclick: () => copy(studentLink(s), "Link van " + (s.name || s.id) + " gekopieerd ✓") }, "🔗 Link"),
+        el("a", { class: "btn", href: studentLink(s), target: "_blank", rel: "noopener" }, "Bekijk"))),
+    body);
+}
+
+// ---------- add / edit a student ----------
+function addStudentForm() { editStudent(null); }
+function editStudent(s) {
+  const name = el("input", { value: s ? s.name : "", placeholder: "Voornaam" });
+  const lang = el("select", null,
+    el("option", { value: "nl" }, "Nederlands"), el("option", { value: "en" }, "Engels"));
+  lang.value = s ? s.lang || "nl" : "nl";
+  const err = el("p", { class: "error" });
+  const ov = el("div", { class: "overlay" }, el("div", { class: "sheet" },
+    el("h2", null, s ? "Leerling wijzigen" : "Nieuwe leerling"),
+    el("label", null, "Naam"), name,
+    el("label", null, "Taal van de pagina"), lang,
+    s ? el("p", { class: "small muted" }, "Link blijft: " + studentLink(s)) : null,
+    err,
+    el("div", { class: "row", style: "margin-top:12px" },
+      el("button", { class: "primary", onclick: save }, s ? "Opslaan" : "Toevoegen"),
+      el("button", { onclick: () => ov.remove() }, "Annuleren"))));
+  async function save() {
+    const nm = name.value.trim();
+    const id = s ? s.id : slug(nm);
+    if (!nm || !id) { err.textContent = "Geef een naam."; return; }
+    if (!s && students.some(x => x.id === id)) { err.textContent = "Er is al een leerling met link ?s=" + id + "."; return; }
+    try {
+      await F.setDoc(F.doc(db, "students", id), { name: nm, lang: lang.value }, { merge: true });
+      ov.remove(); await reload();
+      if (!s) toast("Link: " + studentLink({ id }));
+    } catch (e) { err.textContent = "Opslaan mislukt: " + e.message; }
+  }
+  document.body.append(ov); name.focus();
+}
+
+// ---------- add / edit homework ----------
+function homeworkForm(s, existing) {
+  const en = s.lang === "en";
+  const exList = el("div");
+  const exercises = existing
+    ? (existing.exercises || [existing]) // old one-exercise format becomes one block
+    : [{}];
+
+  const date = el("input", { type: "date", value: existing ? existing.id.slice(0, 10) : todayISO() });
+  const title = el("input", { value: existing ? existing.title || "" : "",
+    placeholder: (en ? "Homework " : "Huiswerk ") + dateLabel(todayISO(), s.lang) });
+  const notes = el("textarea", { placeholder: "Eén punt per regel (optioneel)" });
+  notes.value = existing && existing.exercises ? [].concat(existing.notes || []).join("\n") : "";
+  const err = el("p", { class: "error" });
+
+  function exBlock(ex) {
+    const grooves = !ex.groove ? [] : Array.isArray(ex.groove) ? ex.groove : [{ url: ex.groove }];
+    const f = {
+      type: el("input", { value: ex.type || "", list: "types", placeholder: "bv. Groove" }),
+      title: el("input", { value: ex.title || "", placeholder: "bv. Beat met fills" }),
+      links: el("textarea", { placeholder: "Plak hier de Drumsheet-link (één per regel als het er meer zijn)" }),
+      goal: el("input", { value: ex.goal || "", placeholder: "Leeg = automatisch (vlot op het hoogste tempo)" }),
+      tempos: el("input", { value: (ex.tempos || []).join(" "), placeholder: "bv. 60 70 80 — leeg = uit de link" }),
+      focus: el("textarea", { placeholder: "Waar moeten ze op letten? Eén punt per regel" }),
+      pdf: ex.pdf || null
+    };
+    f.links.value = grooves.map(g => g.url).join("\n");
+    f.focus.value = [].concat(ex.focus || []).join("\n");
+    let temposTouched = !!f.tempos.value;
+    f.tempos.addEventListener("input", () => { temposTouched = !!f.tempos.value; });
+    f.links.addEventListener("input", () => {
+      const first = lines(f.links.value)[0] || "";
+      if (!temposTouched) f.tempos.value = tempoSteps(first).join(" ");
+    });
+    const box = el("fieldset", null, el("legend", null, "Oefening"),
+      el("div", { class: "grid2" },
+        el("div", null, el("label", null, "Soort ", el("span", { class: "muted" }, "(optioneel)")), f.type),
+        el("div", null, el("label", null, "Titel"), f.title)),
+      el("label", null, "Drumsheet-link"), f.links,
+      el("label", null, "Let op / notities"), f.focus,
+      el("div", { class: "grid2" },
+        el("div", null, el("label", null, "Doel ", el("span", { class: "muted" }, "(optioneel)")), f.goal),
+        el("div", null, el("label", null, "Tempo-stappen (bpm)"), f.tempos)),
+      f.pdf ? el("p", { class: "small muted" }, "PDF blijft gekoppeld: " + f.pdf) : null,
+      el("div", { class: "row", style: "margin-top:10px" },
+        el("button", { class: "ghost danger", onclick: () => { box.remove(); blocks.splice(blocks.indexOf(f), 1); renumber(); } }, "Oefening verwijderen")));
+    f.box = box;
+    return f;
+  }
+  const blocks = [];
+  function addEx(ex) { const f = exBlock(ex); blocks.push(f); exList.append(f.box); renumber(); }
+  function renumber() { blocks.forEach((f, i) => { f.box.querySelector("legend").textContent = "Oefening " + (i + 1); }); }
+  exercises.forEach(addEx);
+
+  const saveBtn = el("button", { class: "primary", onclick: save }, existing ? "Opslaan" : "Toevoegen");
+  const ov = el("div", { class: "overlay" }, el("div", { class: "sheet" },
+    el("h2", null, (existing ? "Huiswerk wijzigen – " : "Huiswerk voor ") + (s.name || s.id)),
+    el("datalist", { id: "types" }, TYPES.map(t => el("option", { value: t }))),
+    el("div", { class: "grid2" },
+      el("div", null, el("label", null, "Datum van de les"), date),
+      el("div", null, el("label", null, "Titel ", el("span", { class: "muted" }, "(optioneel)")), title)),
+    el("label", null, "Algemene notities ", el("span", { class: "muted" }, "(optioneel)")), notes,
+    exList,
+    el("button", { onclick: () => addEx({}) }, "＋ Oefening"),
+    err,
+    el("div", { class: "row", style: "margin-top:16px" },
+      saveBtn, el("button", { onclick: () => ov.remove() }, "Annuleren"))));
+  document.body.append(ov);
+  if (!existing) blocks[0].links.focus();
+
+  async function save() {
+    err.textContent = "";
+    const d = date.value || todayISO();
+    const exs = blocks.map((f, i) => {
+      const urls = lines(f.links.value);
+      const tempos = lines(f.tempos.value.replace(/[,;]/g, " ").replace(/\s+/g, "\n")).map(Number).filter(n => n > 0);
+      const max = tempos.length ? Math.max(...tempos) : 0;
+      const ex = {
+        title: f.title.value.trim() || f.type.value.trim() || (en ? "Exercise " : "Oefening ") + (i + 1),
+        goal: f.goal.value.trim() || (max ? (en ? "Play it cleanly at " : "Vlot spelen op ") + max + " bpm"
+                                          : (en ? "Play it cleanly" : "Vlot spelen")),
+        tempos,
+        groove: urls.map((u, j) => urls.length > 1 ? { label: (en ? "Part " : "Deel ") + (j + 1), url: u } : { url: u }),
+        focus: lines(f.focus.value)
+      };
+      if (f.type.value.trim()) ex.type = f.type.value.trim();
+      if (f.pdf) ex.pdf = f.pdf;
+      return { ex, empty: !urls.length && !ex.focus.length && !f.title.value.trim() && !f.goal.value.trim() };
+    }).filter(x => !x.empty).map(x => x.ex);
+    if (!exs.length) { err.textContent = "Vul minstens één oefening in (link, titel of notities)."; return; }
+
+    // one homework per lesson date; a second one on the same day gets -2, -3, …
+    let id = d;
+    const taken = new Set(s.homework.map(h => h.id));
+    if (existing) taken.delete(existing.id);
+    if (!(existing && existing.id.slice(0, 10) === d)) { let n = 2; while (taken.has(id)) id = d + "-" + n++; }
+    else id = existing.id;
+
+    const doc = {
+      date: dateLabel(d, s.lang),
+      title: title.value.trim() || (en ? "Homework " : "Huiswerk ") + dateLabel(d, s.lang),
+      notes: lines(notes.value),
+      exercises: exs,
+      updated: F.serverTimestamp()
+    };
+    if (existing && existing.pdf && existing.exercises) doc.pdf = existing.pdf;
+    saveBtn.disabled = true;
+    try {
+      await F.setDoc(F.doc(db, "students", s.id, "homework", id), doc);
+      if (existing && existing.id !== id) await F.deleteDoc(F.doc(db, "students", s.id, "homework", existing.id));
+      ov.remove();
+      open[s.id] = true;
+      await reload();
+      toast(existing ? "Opgeslagen ✓" : "✓ " + (s.name || s.id) + " ziet het huiswerk nu");
+    } catch (e) { saveBtn.disabled = false; err.textContent = "Opslaan mislukt: " + e.message; }
+  }
+}
+
+async function removeHomework(s, h) {
+  if (!confirm("Huiswerk van " + (h.date || h.id) + " voor " + (s.name || s.id) + " verwijderen? Dit kan niet ongedaan gemaakt worden.")) return;
+  try { await F.deleteDoc(F.doc(db, "students", s.id, "homework", h.id)); await reload(); toast("Verwijderd"); }
+  catch (e) { alert("Verwijderen mislukt: " + e.message); }
+}
+
+// ---------- one-time import from the old GitHub pages ----------
+async function importOld() {
+  if (!confirm("De " + OLD_STUDENTS.length + " leerlingen en hun huiswerk overnemen van de oude pagina's?")) return;
+  app.append(el("p", { class: "muted" }, "Bezig met importeren…"));
+  const fixPdf = p => (p && /^pdf\//.test(p) ? p : p); // PDFs are copied next to this page (huiswerk/pdf/)
+  let n = 0;
+  for (const id of OLD_STUDENTS) {
+    try {
+      const r = await fetch(OLD + "s/" + id + ".json", { cache: "no-store" });
+      if (!r.ok) continue;
+      const d = await r.json();
+      await F.setDoc(F.doc(db, "students", id), { name: d.name || id, lang: d.lang || "nl" });
+      for (const a of d.assignments || []) {
+        const hid = String(a.id || a.date || Math.random().toString(36).slice(2)).replace(/\//g, "-");
+        const copyA = JSON.parse(JSON.stringify(a));
+        delete copyA.id;
+        copyA.pdf = fixPdf(copyA.pdf);
+        (copyA.exercises || []).forEach(ex => { ex.pdf = fixPdf(ex.pdf); if (ex.pdf == null) delete ex.pdf; });
+        if (copyA.pdf == null) delete copyA.pdf;
+        await F.setDoc(F.doc(db, "students", id, "homework", hid), copyA);
+      }
+      n++;
+    } catch (e) { console.warn("import", id, e); }
+  }
+  await reload();
+  toast(n + " leerlingen geïmporteerd ✓");
+}
+
+// ---------- data ----------
+async function reload() {
+  const snap = await F.getDocs(F.collection(db, "students"));
+  const list = await Promise.all(snap.docs.map(async d => {
+    const hw = await F.getDocs(F.collection(db, "students", d.id, "homework"));
+    const homework = hw.docs.map(h => Object.assign({ id: h.id }, h.data()))
+      .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+    return Object.assign({ id: d.id }, d.data(), { homework });
+  }));
+  students = list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+  mainScreen();
+}
+
+async function signIn() {
+  try { await A.signInWithPopup(auth, new A.GoogleAuthProvider()); }
+  catch (e) { signInScreen("Inloggen mislukt: " + e.message); }
+}
+
+// ---------- boot ----------
+(async function () {
+  if (!firebaseConfig) return setupScreen();
+  const { initializeApp } = await import(FB + "firebase-app.js");
+  A = await import(FB + "firebase-auth.js");
+  F = await import(FB + "firebase-firestore.js");
+  const fbApp = initializeApp(firebaseConfig);
+  auth = A.getAuth(fbApp);
+  db = F.getFirestore(fbApp);
+  A.onAuthStateChanged(auth, async u => {
+    user = u;
+    if (!u) return signInScreen();
+    try { await reload(); }
+    catch (e) {
+      if (e.code === "permission-denied") rulesScreen();
+      else screen(el("p", { class: "error" }, "Fout bij laden: " + e.message));
+    }
+  });
+})();
+</script>
+</body>
+</html>
