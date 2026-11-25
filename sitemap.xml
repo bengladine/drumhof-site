@@ -19,4 +19,16 @@
     <loc>https://drumhof.com/cursus/</loc>
     <lastmod>2026-11-17</lastmod>
   </url>
+  <url>
+    <loc>https://drumhof.com/oefenpagina/</loc>
+    <lastmod>2026-11-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://drumhof.com/oefenpagina/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://drumhof.com/oefenpagina/en.html"/>
+  </url>
+  <url>
+    <loc>https://drumhof.com/oefenpagina/en.html</loc>
+    <lastmod>2026-11-25</lastmod>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://drumhof.com/oefenpagina/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://drumhof.com/oefenpagina/en.html"/>
+  </url>
 </urlset>
