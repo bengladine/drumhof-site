@@ -119,3 +119,10 @@ a.button {
 a.button:hover {
   background-color: #444;
 }
+
+/* Practice page showcase */
+.hw-shots { display: flex; gap: 16px; justify-content: center; margin: 20px 0 8px; }
+.hw-shots figure { margin: 0; flex: 0 1 240px; }
+.hw-shots img { width: 100%; height: auto; display: block; border-radius: 18px; border: 1px solid rgba(0,0,0,.12); box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.hw-shots figcaption { font-size: .85em; opacity: .75; margin-top: 8px; text-align: center; }
+.hw-teachers { font-size: .85em; opacity: .75; }
