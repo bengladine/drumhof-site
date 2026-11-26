@@ -363,7 +363,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           sent: "Verstuurd ✓ Je leraar ziet het.", sendFail: "Versturen lukte niet. Probeer later opnieuw.",
           replied: "💬 Je leraar heeft geantwoord — kijk bij de oefening.",
           rec: "🎙️ Opname sturen", recNow: "Opnemen…", recStop: "■ Stop", recAgain: "Opnieuw",
-          recPlay: "▶ Opname", recNoMic: "Geen toegang tot je microfoon. Sta het toe in je browser en probeer opnieuw.",
+          recGone: "🎙️ Opname verwijderd na 3 maanden", recPlay: "▶ Opname", recNoMic: "Geen toegang tot je microfoon. Sta het toe in je browser en probeer opnieuw.",
           recTip: "Leg je gsm een paar meter van je drums. Max 1 minuut.",
           solved: "✓ Opgelost", solvedOld: n => "✓ Opgelost (" + n + " bericht" + (n === 1 ? "" : "en") + ")" },
     en: { hi: "Hi", intro: "This is your drum homework.", none: "No homework yet.", previous: "Previous homework",
@@ -379,7 +379,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           sent: "Sent ✓ Your teacher will see it.", sendFail: "Couldn't send. Please try again later.",
           replied: "💬 Your teacher replied — see the exercise.",
           rec: "🎙️ Send a recording", recNow: "Recording…", recStop: "■ Stop", recAgain: "Again",
-          recPlay: "▶ Recording", recNoMic: "No access to your microphone. Allow it in your browser and try again.",
+          recGone: "🎙️ Recording removed after 3 months", recPlay: "▶ Recording", recNoMic: "No access to your microphone. Allow it in your browser and try again.",
           recTip: "Put your phone a few metres from your drums. Max 1 minute.",
           solved: "✓ Solved", solvedOld: n => "✓ Solved (" + n + " message" + (n === 1 ? "" : "s") + ")" }
   };
@@ -591,7 +591,8 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       el("span", { class: "msg-who" }, who(m),
         !VIEW && m.from === "teacher" && m.at > msgSeen ? el("span", { class: "msg-new" }, T("isNew")) : null),
       m.text ? el("span", { class: "msg-text" }, m.text) : null,
-      m.clip ? clipPlayer(m) : null);
+      m.clip ? clipPlayer(m) : null,
+      m.clipExpired ? el("span", { class: "msg-who" }, T("recGone")) : null);
     const card = el("section", { class: "card msgs" });
     rounds.forEach(r => card.append(el("details", { class: "msg-old" },
       el("summary", null, T("solvedOld")(r.length)), r.map(bubble))));

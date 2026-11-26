@@ -731,7 +731,8 @@ function messagesSection(s, seen) {
           m.from === "student" && m.at > seen ? el("span", { class: "chip owe", style: "margin-left:6px" }, "nieuw") : null,
           el("button", { class: "ghost small", title: "Bericht verwijderen", onclick: () => removeMessage(s, m) }, "🗑️")),
         m.text ? el("div", { class: "tmsg-text" }, m.text) : null,
-        m.clip ? clipButton(s, m) : null)));
+        m.clip ? clipButton(s, m) : null,
+        m.clipExpired ? el("div", { class: "small muted" }, "🎙️ Opname verwijderd (ouder dan 3 maanden)") : null)));
     const key = lastStudent ? lastStudent.id : th[0].id;
     if (replyOpen[key]) {
       const ta = el("textarea", { maxlength: "1000", placeholder: "Je antwoord…" });
@@ -755,6 +756,28 @@ function messagesSection(s, seen) {
   }
   return wrap;
 }
+// Recordings older than 3 months are deleted automatically (checked once a day when you open this page).
+// The message stays, with "Opname verwijderd" instead of the play button.
+const CLIP_DAYS = 90;
+async function cleanupOldClips() {
+  if (!msgOK) return;
+  try { if (localStorage.getItem("clip-cleanup") === todayISO()) return; } catch (e) {}
+  const cutoff = new Date(Date.now() - CLIP_DAYS * 86400000).toISOString();
+  let n = 0;
+  for (const s of students) {
+    for (const m of s.msgs || []) {
+      if (!m.clip || !(m.at < cutoff)) continue;
+      try {
+        await F.deleteDoc(F.doc(db, "progress", s.id, "clips", m.clip));
+        await F.updateDoc(F.doc(db, "progress", s.id, "messages", m.id), { clip: F.deleteField(), clipExpired: true });
+        delete m.clip; m.clipExpired = true; n++;
+      } catch (e) { console.warn("clip cleanup:", e); return; }
+    }
+  }
+  try { localStorage.setItem("clip-cleanup", todayISO()); } catch (e) {}
+  if (n) console.info("Oude opnames verwijderd:", n);
+}
+
 // Recordings are fetched only when you press play
 const clipCache = {};
 function clipButton(s, m) {
@@ -1191,6 +1214,7 @@ async function reload() {
       s.msgs = ms.docs.map(m => Object.assign({ id: m.id }, m.data())).sort((a, b) => (a.at < b.at ? -1 : 1));
     } catch (e) { if (e.code === "permission-denied") msgOK = false; else console.warn("messages:", e); }
   }));
+  cleanupOldClips();
   progress = {}; progressOK = true;
   try {
     const ps = await F.getDocs(F.collection(db, "progress"));
