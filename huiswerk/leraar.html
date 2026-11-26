@@ -74,6 +74,7 @@
   .pdots { display: inline-flex; gap: 3px; }
   .pday { width: 10px; height: 10px; border-radius: 3px; background: var(--line); }
   .pday.on { background: var(--ok); }
+  .pday.seen { background: #b9dcc7; }
   .pday.today { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>
 </head>
@@ -201,7 +202,7 @@ service cloud.firestore {
       allow get: if true;
       allow list, delete: if isTeacher();
       allow create, update: if exists(/databases/$(database)/documents/students/$(student))
-        && request.resource.data.keys().hasOnly(["days", "tempos", "updated"])
+        && request.resource.data.keys().hasOnly(["days", "tempos", "opened", "updated"])
         && request.resource.data.days is list && request.resource.data.days.size() <= 3000
         && request.resource.data.tempos is map;
     }
@@ -337,6 +338,7 @@ function practiceRow(s) {
   if (!progressOK) return null;
   const p = progress[s.id];
   const days = new Set((p && p.days) || []);
+  const opened = new Set((p && p.opened) || []);
   const iso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   const back = n => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
   let streak = 0;
@@ -346,12 +348,18 @@ function practiceRow(s) {
   const dots = [];
   for (let n = 13; n >= 0; n--) {
     const d = back(n);
-    dots.push(el("span", { class: "pday" + (days.has(iso(d)) ? " on" : "") + (n === 0 ? " today" : ""),
-      title: d.toLocaleDateString("nl-BE", { weekday: "short", day: "numeric", month: "short" }) + (days.has(iso(d)) ? " · geoefend" : "") }));
+    const k = iso(d), did = days.has(k), saw = opened.has(k);
+    dots.push(el("span", { class: "pday" + (did ? " on" : saw ? " seen" : "") + (n === 0 ? " today" : ""),
+      title: d.toLocaleDateString("nl-BE", { weekday: "short", day: "numeric", month: "short" }) +
+        (did ? " · geoefend" : saw ? " · app geopend" : "") }));
   }
   const last = [...days].sort().pop();
+  const t = iso(back(0));
+  const todayChip = days.has(t) ? el("span", { class: "chip credit" }, "✓ vandaag geoefend")
+    : opened.has(t) ? el("span", { class: "chip" }, "👀 vandaag geopend") : null;
   return el("div", { class: "practice" },
-    el("span", { class: "pdots", title: "Laatste 14 dagen (rechts = vandaag)" }, dots),
+    todayChip,
+    el("span", { class: "pdots", title: "Laatste 14 dagen (rechts = vandaag) · groen = geoefend · licht = app geopend" }, dots),
     el("span", { class: "small muted" },
       !p ? "nog niets aangevinkt"
          : (streak ? "🔥 " + streak + " · " : "") + week + "/7 dagen" + (last ? " · laatst " + dateLabel(last, "nl") : "")));
@@ -386,7 +394,8 @@ function studentCard(s) {
       el("div", { class: "row" },
         el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
         el("button", { onclick: () => copy(studentLink(s), "Link van " + (s.name || s.id) + " gekopieerd ✓") }, "🔗 Link"),
-        el("a", { class: "btn", href: studentLink(s), target: "_blank", rel: "noopener" }, "Bekijk"),
+        // &leraar=1 → read-only view of the student's page (you can't tick for them)
+        el("a", { class: "btn", href: studentLink(s) + "&leraar=1", target: "_blank", rel: "noopener" }, "Bekijk"),
         el("button", { title: "Naam, taal, tarief en startsaldo", onclick: () => editStudent(s) }, "⚙️ Wijzigen"))),
     body);
 }

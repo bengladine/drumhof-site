@@ -112,6 +112,11 @@
   .overlay-bar button { padding: 10px 14px; border-radius: 10px; border: 0; background: var(--ink); color: #fff;
                         font: inherit; font-weight: 700; }
   .error { background: #fff; border-radius: var(--radius); padding: 20px; }
+  /* teacher's read-only view (&leraar=1): ticks can't be changed */
+  .view-banner { background: #1d1d1b; color: #f6f4ef; border-radius: 12px; padding: 10px 14px;
+                 font-size: .9rem; font-weight: 600; margin-bottom: 12px; }
+  .view-only .day, .view-only .big-btn, .view-only input[type=checkbox] { pointer-events: none; }
+  .view-only .big-btn, .view-only .day:not(.on) { opacity: .55; }
 </style>
 </head>
 <body>
@@ -143,18 +148,26 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     } catch (e) {}
     history.replaceState(null, "", location.pathname + location.search);
   }
+  // Opened from the teacher page ("Bekijk", &leraar=1): show the student's ticks from the database,
+  // read-only. Nothing is ticked, saved or counted as "opened" from the teacher's device.
+  const VIEW = new URLSearchParams(location.search).has("leraar");
+  if (VIEW) document.body.classList.add("view-only");
   function load() {
-    try { return JSON.parse(localStorage.getItem(KEY)) || { days: [], tempos: {} }; }
-    catch (e) { return { days: [], tempos: {} }; }
+    if (VIEW) return { days: [], tempos: {}, opened: [] };
+    try { return JSON.parse(localStorage.getItem(KEY)) || { days: [], tempos: {}, opened: [] }; }
+    catch (e) { return { days: [], tempos: {}, opened: [] }; }
   }
   function saveLocal(state) {
+    if (VIEW) return;
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
   }
   function save(state) {
+    if (VIEW) return;
     // Every change is still kept on this phone first; "dirty" = not yet in the database.
     state.dirty = true; saveLocal(state); pushProgress();
   }
   let state = load();
+  state.opened = state.opened || [];
 
   // ---------- practice sync (database, so ticks show up on every device + on the teacher page) ----------
   // No accounts: the student's link (?s=code) is the key. progress/<code> = { days, tempos, updated }.
@@ -173,13 +186,15 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   function mergeInto(local, cloud) {
     const tempos = Object.assign({}, cloud.tempos);
     Object.keys(local.tempos || {}).forEach(k => { tempos[k] = union(tempos[k], local.tempos[k]); });
-    return { days: union(local.days, cloud.days), tempos };
+    return { days: union(local.days, cloud.days), tempos, opened: union(local.opened, cloud.opened) };
   }
   async function pushProgress() {
+    if (VIEW) return;
     try {
       const f = await getDb(); if (!f) return;
       await f.L.setDoc(f.L.doc(f.db, "progress", code),
-        { days: state.days, tempos: state.tempos || {}, updated: new Date().toISOString() });
+        { days: state.days, tempos: state.tempos || {}, opened: (state.opened || []).slice(-400),
+          updated: new Date().toISOString() });
       state.dirty = false; state.synced = true; saveLocal(state);
     } catch (e) { console.warn("progress push:", e); }
   }
@@ -189,16 +204,17 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       const snap = await f.L.getDoc(f.L.doc(f.db, "progress", code));
       const cloud = snap.exists() ? snap.data() : null;
       const before = JSON.stringify([state.days, state.tempos]);
-      if (!cloud) {
-        if (state.days.length || Object.keys(state.tempos || {}).length) await pushProgress();
-        return false;
-      }
-      const next = (state.dirty || !state.synced) ? mergeInto(state, cloud)
-        : { days: cloud.days || [], tempos: cloud.tempos || {} };
-      const needsPush = state.dirty || !state.synced;
-      state.days = next.days; state.tempos = next.tempos; state.synced = true;
-      saveLocal(state);
-      if (needsPush) await pushProgress();
+      const needsPush = !VIEW && (state.dirty || !state.synced);
+      let next;
+      if (!cloud) next = { days: state.days, tempos: state.tempos, opened: state.opened };
+      else if (needsPush) next = mergeInto(state, cloud);
+      else next = { days: cloud.days || [], tempos: cloud.tempos || {}, opened: cloud.opened || [] };
+      state.days = next.days; state.tempos = next.tempos || {}; state.opened = next.opened || [];
+      // Count today as "opened the app" (shown to the teacher), once per day
+      let changed = needsPush;
+      if (!VIEW && !state.opened.includes(todayKey)) { state.opened.push(todayKey); changed = true; }
+      if (!VIEW) { state.synced = state.synced || !!cloud; saveLocal(state); }
+      if (changed) await pushProgress();
       return JSON.stringify([state.days, state.tempos]) !== before;
     } catch (e) { console.warn("progress pull:", e); return false; }
   }
@@ -219,6 +235,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     return n;
   }
   function toggleDay(key) {
+    if (VIEW) return;
     const i = state.days.indexOf(key);
     if (i >= 0) state.days.splice(i, 1); else state.days.push(key);
     save(state); render();
@@ -325,6 +342,8 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   }
   function renderPage() {
     app.textContent = "";
+    if (VIEW) app.append(el("div", { class: "view-banner" },
+      "👀 Leraar-weergave: je ziet wat " + (data.name || code) + " aanvinkte. Aanvinken kan hier niet."));
     app.append(el("h1", null, T("hi") + " " + (data.name || "") + " 👋"));
     app.append(el("p", { class: "sub" }, T("intro")));
     app.append(streakCard());
@@ -414,6 +433,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     const allDone = isDone(a, id);
     const wrap = el("div");
     const toggleTick = t => {
+      if (VIEW) return render();
       const arr = state.tempos[id] = state.tempos[id] || [];
       const i = arr.indexOf(t);
       if (i >= 0) arr.splice(i, 1); else arr.push(t);

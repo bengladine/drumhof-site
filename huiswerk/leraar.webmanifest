@@ -3,7 +3,7 @@
   "name": "Drumhof – leraar",
   "short_name": "Drumhof",
   "start_url": "/huiswerk/leraar.html",
-  "scope": "/huiswerk/",
+  "scope": "/huiswerk/leraar",
   "display": "standalone",
   "background_color": "#f6f4ef",
   "theme_color": "#f6f4ef",
