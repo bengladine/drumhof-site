@@ -215,7 +215,7 @@ function showTab(id) {
 document.addEventListener("keydown", e => { if (e.key === "Escape" && activeTab != null) showTab(null); });
 
 // ---------- screens ----------
-function screen(...kids) { app.textContent = ""; app.append(...kids); }
+function screen(...kids) { app.textContent = ""; app.append(...kids.filter(k => k != null && k !== false)); }
 
 function setupScreen() {
   screen(el("h1", null, "Huiswerk – leraar"),
