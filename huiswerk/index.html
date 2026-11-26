@@ -128,6 +128,16 @@
   .msg-status { color: #b3261e; font-size: .9rem; margin: 6px 0 0; }
   .msg-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ok); color: #fff;
                padding: 12px 18px; border-radius: 12px; font-weight: 700; z-index: 30; }
+  .ask-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ask-row .ask-btn { flex: 1 1 200px; width: auto; }
+  .rec-box { background: var(--bg); border-radius: 12px; padding: 10px; }
+  .rec-box audio, .clip audio { width: 100%; }
+  .rec-live { font-weight: 800; display: flex; align-items: center; gap: 8px; }
+  .rec-dot { width: 12px; height: 12px; border-radius: 50%; background: #d92d20; animation: recblink 1s infinite; }
+  @keyframes recblink { 50% { opacity: .2; } }
+  .muted-tip { color: var(--muted); }
+  .clip { margin-top: 6px; }
+  .play-clip { font: inherit; font-weight: 700; border: 0; border-radius: 99px; padding: 6px 14px; background: var(--ink); color: #fff; cursor: pointer; }
   .msg-old { margin-bottom: 8px; }
   .msg-old summary { cursor: pointer; color: var(--ok); font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
   .solve-btn { font: inherit; font-weight: 700; background: #e3f1e8; color: #1f6e40; border: 0; border-radius: 10px; padding: 8px 14px; cursor: pointer; margin-bottom: 8px; }
@@ -352,6 +362,9 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           send: "Versturen", cancel: "Annuleren", you: "Jij", teacher: "Leraar", isNew: "nieuw",
           sent: "Verstuurd ✓ Je leraar ziet het.", sendFail: "Versturen lukte niet. Probeer later opnieuw.",
           replied: "💬 Je leraar heeft geantwoord — kijk bij de oefening.",
+          rec: "🎙️ Opname sturen", recNow: "Opnemen…", recStop: "■ Stop", recAgain: "Opnieuw",
+          recPlay: "▶ Opname", recNoMic: "Geen toegang tot je microfoon. Sta het toe in je browser en probeer opnieuw.",
+          recTip: "Leg je gsm een paar meter van je drums. Max 1 minuut.",
           solved: "✓ Opgelost", solvedOld: n => "✓ Opgelost (" + n + " bericht" + (n === 1 ? "" : "en") + ")" },
     en: { hi: "Hi", intro: "This is your drum homework.", none: "No homework yet.", previous: "Previous homework",
           days: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"], streak1: "day in a row", streakN: "days in a row",
@@ -365,6 +378,9 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           send: "Send", cancel: "Cancel", you: "You", teacher: "Teacher", isNew: "new",
           sent: "Sent ✓ Your teacher will see it.", sendFail: "Couldn't send. Please try again later.",
           replied: "💬 Your teacher replied — see the exercise.",
+          rec: "🎙️ Send a recording", recNow: "Recording…", recStop: "■ Stop", recAgain: "Again",
+          recPlay: "▶ Recording", recNoMic: "No access to your microphone. Allow it in your browser and try again.",
+          recTip: "Put your phone a few metres from your drums. Max 1 minute.",
           solved: "✓ Solved", solvedOld: n => "✓ Solved (" + n + " message" + (n === 1 ? "" : "s") + ")" }
   };
   const T = k => (LABELS[(data && data.lang) || "nl"] || LABELS.nl)[k];
@@ -574,7 +590,8 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     const bubble = m => el("div", { class: "msg " + (m.from === "teacher" ? "from-teacher" : "from-student") },
       el("span", { class: "msg-who" }, who(m),
         !VIEW && m.from === "teacher" && m.at > msgSeen ? el("span", { class: "msg-new" }, T("isNew")) : null),
-      el("span", { class: "msg-text" }, m.text));
+      m.text ? el("span", { class: "msg-text" }, m.text) : null,
+      m.clip ? clipPlayer(m) : null);
     const card = el("section", { class: "card msgs" });
     rounds.forEach(r => card.append(el("details", { class: "msg-old" },
       el("summary", null, T("solvedOld")(r.length)), r.map(bubble))));
@@ -592,10 +609,12 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       });
       card.append(el("div", { class: "msg-row" }, solve));
     }
+    if (recs[id]) { card.append(recorderView(id, exTitle)); return card; }
     if (drafts[id] == null) {
-      if (VIEW && !current.length && !rounds.length) return el("span");
-      card.append(el("button", { class: "ask-btn", onclick: () => { drafts[id] = ""; render(); } },
-        VIEW ? "↩︎ Antwoorden / iets sturen" : T("ask")));
+      card.append(el("div", { class: "ask-row" },
+        el("button", { class: "ask-btn", onclick: () => { drafts[id] = ""; render(); } },
+          VIEW ? (current.length ? "↩︎ Antwoorden" : "✉️ Iets sturen") : T("ask")),
+        el("button", { class: "ask-btn rec-btn", onclick: () => startRec(id) }, T("rec"))));
       return card;
     }
     const ta = el("textarea", { class: "msg-input", maxlength: "1000", placeholder: VIEW ? "Je antwoord…" : T("askPh") });
@@ -623,6 +642,111 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     card.append(ta, el("div", { class: "msg-row" }, send, cancel), status);
     return card;
   }
+  // ---------- audio recordings ----------
+  // Recorded in the browser (max 60 s, ~48 kbit/s ≈ 360 KB), stored in the database as
+  // progress/<code>/clips/<id> {data (base64), mime, from, at}; the message only points to it (clip, dur),
+  // so opening the page doesn't download every recording. Drum-friendly: no noise suppression / auto gain.
+  const MAX_REC = 60;
+  const recs = {};     // exercise id -> { phase: "rec"|"review", mr, stream, chunks, t0, timer, blob, url, secs, mime }
+  const clipCache = {};
+  function pickMime() {
+    if (!window.MediaRecorder) return null;
+    for (const m of ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"])
+      if (MediaRecorder.isTypeSupported(m)) return m;
+    return "";
+  }
+  async function startRec(id) {
+    const mime = pickMime();
+    if (mime == null) { toastMsg(T("recNoMic")); return; }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    } catch (e) { console.warn("mic:", e); toastMsg(T("recNoMic")); return; }
+    const mr = new MediaRecorder(stream, Object.assign({ audioBitsPerSecond: 48000 }, mime ? { mimeType: mime } : {}));
+    const r = recs[id] = { phase: "rec", mr, stream, chunks: [], t0: Date.now(), mime: mr.mimeType || mime || "audio/webm" };
+    mr.ondataavailable = e => { if (e.data && e.data.size) r.chunks.push(e.data); };
+    mr.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      clearInterval(r.timer);
+      if (recs[id] !== r) return; // cancelled
+      r.secs = Math.max(1, Math.round((Date.now() - r.t0) / 1000));
+      r.blob = new Blob(r.chunks, { type: r.mime });
+      r.url = URL.createObjectURL(r.blob);
+      r.phase = "review"; render();
+    };
+    mr.start(1000);
+    r.timer = setInterval(() => {
+      const sec = Math.floor((Date.now() - r.t0) / 1000);
+      const n = document.getElementById("rec-time-" + cssId(id));
+      if (n) n.textContent = mmss(sec) + " / " + mmss(MAX_REC);
+      if (sec >= MAX_REC && mr.state === "recording") mr.stop();
+    }, 250);
+    render();
+  }
+  const mmss = n => Math.floor(n / 60) + ":" + String(n % 60).padStart(2, "0");
+  const cssId = id => String(id).replace(/[^a-z0-9]/gi, "_");
+  function cancelRec(id) {
+    const r = recs[id]; delete recs[id];
+    if (r && r.mr.state === "recording") r.mr.stop();
+    if (r && r.url) URL.revokeObjectURL(r.url);
+    render();
+  }
+  function recorderView(id, exTitle) {
+    const r = recs[id];
+    if (r.phase === "rec") {
+      return el("div", { class: "rec-box" },
+        el("div", { class: "rec-live" }, el("span", { class: "rec-dot" }), T("recNow"), " ",
+          el("span", { id: "rec-time-" + cssId(id) }, mmss(Math.floor((Date.now() - r.t0) / 1000)) + " / " + mmss(MAX_REC))),
+        el("p", { class: "msg-status muted-tip" }, T("recTip")),
+        el("div", { class: "msg-row" },
+          el("button", { class: "send-btn", onclick: () => r.mr.state === "recording" && r.mr.stop() }, T("recStop")),
+          el("button", { class: "cancel-btn", onclick: () => cancelRec(id) }, T("cancel"))));
+    }
+    const status = el("p", { class: "msg-status" });
+    const send = el("button", { class: "send-btn" }, T("send"));
+    send.addEventListener("click", async () => {
+      send.disabled = true;
+      try {
+        const f = await getDb(); if (!f) throw new Error("offline");
+        if (VIEW && !(f.auth && f.auth.currentUser)) { send.disabled = false; status.textContent = "Log eerst in op de leraarpagina."; return; }
+        const data = await new Promise((ok, bad) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(",")[1]); fr.onerror = bad; fr.readAsDataURL(r.blob); });
+        if (data.length > 950000) throw new Error("too long");
+        const from = VIEW ? "teacher" : "student", at = new Date().toISOString();
+        const c = await f.L.addDoc(f.L.collection(f.db, "progress", code, "clips"), { data, mime: r.mime, from, at });
+        const m = { from, text: "", ex: id, exTitle: exTitle || "", at, clip: c.id, dur: r.secs };
+        const ref = await f.L.addDoc(f.L.collection(f.db, "progress", code, "messages"), m);
+        clipCache[c.id] = r.url; msgs.push(Object.assign({ id: ref.id }, m));
+        delete recs[id]; render(); notifyTeacherPage();
+        toastMsg(VIEW ? "Opname verstuurd ✓" : T("sent"));
+      } catch (e) { console.warn("send clip:", e); send.disabled = false; status.textContent = T("sendFail"); }
+    });
+    return el("div", { class: "rec-box" },
+      el("audio", { controls: "", src: r.url, preload: "metadata" }),
+      el("div", { class: "msg-row" }, send,
+        el("button", { class: "cancel-btn", onclick: () => { cancelRec(id); startRec(id); } }, T("recAgain")),
+        el("button", { class: "cancel-btn", onclick: () => cancelRec(id) }, T("cancel"))),
+      status);
+  }
+  function clipPlayer(m) {
+    const box = el("div", { class: "clip" });
+    const show = url => { box.textContent = ""; const a = el("audio", { controls: "", src: url, preload: "auto" }); box.append(a); a.play().catch(() => {}); };
+    if (clipCache[m.clip]) { box.append(el("audio", { controls: "", src: clipCache[m.clip], preload: "metadata" })); return box; }
+    const btn = el("button", { class: "play-clip" }, T("recPlay") + (m.dur ? " · " + mmss(m.dur) : ""));
+    btn.addEventListener("click", async () => {
+      btn.disabled = true; btn.textContent = "…";
+      try {
+        const f = await getDb();
+        const d = await f.L.getDoc(f.L.doc(f.db, "progress", code, "clips", m.clip));
+        if (!d.exists()) throw new Error("gone");
+        const c = d.data();
+        clipCache[m.clip] = "data:" + (c.mime || "audio/webm").split(";")[0] + ";base64," + c.data;
+        show(clipCache[m.clip]);
+      } catch (e) { console.warn("clip:", e); btn.textContent = "—"; }
+    });
+    box.append(btn);
+    return box;
+  }
+
   // Inside a tab of the teacher page: tell it to refresh the list when you go back to it
   function notifyTeacherPage() {
     try { if (window.parent !== window) window.parent.postMessage({ type: "drumhw-changed", code }, location.origin); } catch (e) {}

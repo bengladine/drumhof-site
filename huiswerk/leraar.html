@@ -204,7 +204,7 @@ function openTab(s) {
   let t = tabs.find(x => x.id === s.id);
   if (!t) {
     t = { id: s.id, name: s.name || s.id,
-          frame: el("iframe", { src: studentLink(s) + "&leraar=1", title: s.name || s.id }) };
+          frame: el("iframe", { src: studentLink(s) + "&leraar=1", title: s.name || s.id, allow: "microphone; autoplay" }) };
     tabs.push(t);
     frames.append(t.frame);
   }
@@ -488,13 +488,22 @@ service cloud.firestore {
       match /messages/{id} {
         allow read: if true;
         allow create: if exists(/databases/$(database)/documents/students/$(student))
-          && request.resource.data.keys().hasOnly(["from", "text", "ex", "exTitle", "at"])
+          && request.resource.data.keys().hasOnly(["from", "text", "ex", "exTitle", "at", "clip", "dur"])
           && request.resource.data.text is string && request.resource.data.text.size() <= 1000
           && (request.resource.data.from == "student" || (request.resource.data.from == "teacher" && isTeacher()));
         allow update: if isTeacher()
           || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["solved"])
               && request.resource.data.solved == true);
         allow delete: if isTeacher();
+      }
+      // Audio recordings (base64, max ~1 minute), linked from a message
+      match /clips/{id} {
+        allow get: if true;
+        allow list, update, delete: if isTeacher();
+        allow create: if exists(/databases/$(database)/documents/students/$(student))
+          && request.resource.data.keys().hasOnly(["data", "mime", "from", "at"])
+          && request.resource.data.data is string && request.resource.data.data.size() <= 950000
+          && (request.resource.data.from == "student" || (request.resource.data.from == "teacher" && isTeacher()));
       }
     }
     // Boekhouding (rates, lessons, payments): only the teacher can read or write
@@ -721,7 +730,8 @@ function messagesSection(s, seen) {
         el("div", { class: "small muted" }, (m.from === "teacher" ? "Jij" : (s.name || s.id)) + " · " + timeLabel(m.at),
           m.from === "student" && m.at > seen ? el("span", { class: "chip owe", style: "margin-left:6px" }, "nieuw") : null,
           el("button", { class: "ghost small", title: "Bericht verwijderen", onclick: () => removeMessage(s, m) }, "🗑️")),
-        el("div", { class: "tmsg-text" }, m.text))));
+        m.text ? el("div", { class: "tmsg-text" }, m.text) : null,
+        m.clip ? clipButton(s, m) : null)));
     const key = lastStudent ? lastStudent.id : th[0].id;
     if (replyOpen[key]) {
       const ta = el("textarea", { maxlength: "1000", placeholder: "Je antwoord…" });
@@ -745,9 +755,35 @@ function messagesSection(s, seen) {
   }
   return wrap;
 }
+// Recordings are fetched only when you press play
+const clipCache = {};
+function clipButton(s, m) {
+  const box = el("div", { style: "margin-top:4px" });
+  const mmss = n => Math.floor(n / 60) + ":" + String(n % 60).padStart(2, "0");
+  const btn = el("button", { class: "small" }, "▶ Opname" + (m.dur ? " · " + mmss(m.dur) : ""));
+  btn.addEventListener("click", async () => {
+    btn.disabled = true; btn.textContent = "…";
+    try {
+      if (!clipCache[m.clip]) {
+        const d = await F.getDoc(F.doc(db, "progress", s.id, "clips", m.clip));
+        if (!d.exists()) throw new Error("niet gevonden");
+        const c = d.data();
+        clipCache[m.clip] = "data:" + (c.mime || "audio/webm").split(";")[0] + ";base64," + c.data;
+      }
+      const a = el("audio", { controls: "", src: clipCache[m.clip], style: "width:100%" });
+      box.textContent = ""; box.append(a); a.play().catch(() => {});
+    } catch (e) { btn.textContent = "Opname niet gevonden"; }
+  });
+  box.append(btn);
+  return box;
+}
+
 async function removeMessage(s, m) {
   if (!confirm("Dit bericht verwijderen? De leerling ziet het dan ook niet meer.")) return;
-  try { await F.deleteDoc(F.doc(db, "progress", s.id, "messages", m.id)); open[s.id] = true; await reload(); }
+  try {
+    if (m.clip) await F.deleteDoc(F.doc(db, "progress", s.id, "clips", m.clip)).catch(e => console.warn(e));
+    await F.deleteDoc(F.doc(db, "progress", s.id, "messages", m.id)); open[s.id] = true; await reload();
+  }
   catch (e) { alert("Verwijderen mislukt: " + e.message); }
 }
 
@@ -989,7 +1025,8 @@ async function removeStudent(s, ov) {
   if (typed.trim().toLowerCase() !== nm.toLowerCase()) { alert("Naam klopt niet — er is niets verwijderd."); return; }
   try {
     const subs = [F.getDocs(F.collection(db, "students", s.id, "homework"))];
-    if (msgOK) subs.push(F.getDocs(F.collection(db, "progress", s.id, "messages")));
+    if (msgOK) subs.push(F.getDocs(F.collection(db, "progress", s.id, "messages")),
+      F.getDocs(F.collection(db, "progress", s.id, "clips")).catch(() => ({ docs: [] })));
     if (ledgerOK) subs.push(F.getDocs(F.collection(db, "private", s.id, "lessen")));
     const snaps = await Promise.all(subs);
     await Promise.all(snaps.flatMap(sn => sn.docs.map(d => F.deleteDoc(d.ref))));
