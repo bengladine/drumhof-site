@@ -75,6 +75,18 @@
   .pday { width: 10px; height: 10px; border-radius: 3px; background: var(--line); }
   .pday.on { background: var(--ok); }
   .pday.seen { background: #b9dcc7; }
+  .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto;
+            background: var(--ink); padding: 6px 8px 0; }
+  .tabbar[hidden], .frames[hidden], iframe[hidden], main[hidden] { display: none; }
+  .tab { display: inline-flex; align-items: center; flex: 0 0 auto; border-radius: 10px 10px 0 0;
+         background: #3a3a37; color: #f6f4ef; border: 0; font: inherit; font-weight: 700; padding: 8px 14px; cursor: pointer; }
+  span.tab { padding: 0; }
+  .tab.active { background: var(--bg); color: var(--ink); }
+  .tab button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+  .tab-name { padding: 8px 4px 8px 14px; }
+  .tab-x { padding: 8px 12px 8px 6px; opacity: .7; }
+  .tab-x:hover { opacity: 1; }
+  .frames iframe { display: block; width: 100%; height: calc(100vh - 42px); border: 0; background: var(--bg); }
   .pday.today { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>
 </head>
@@ -160,6 +172,47 @@ function tempoSteps(url) {
   const r5 = x => Math.max(30, Math.round(x / 5) * 5);
   return [...new Set([r5(t * 0.7), r5(t * 0.85), t])].sort((a, b) => a - b);
 }
+
+// ---------- tabs: student pages open inside the teacher page ----------
+// The list stays the first tab; each "Bekijk" adds a tab with that student's page (read-only view).
+// Pages stay loaded while you switch, so a playing groove or scroll position isn't lost.
+const tabs = [];       // [{ id, name, frame }]
+let activeTab = null;  // null = the student list
+const tabbar = el("nav", { class: "tabbar", hidden: true });
+const frames = el("div", { class: "frames", hidden: true });
+document.body.prepend(tabbar);
+document.body.append(frames);
+function openTab(s) {
+  let t = tabs.find(x => x.id === s.id);
+  if (!t) {
+    t = { id: s.id, name: s.name || s.id,
+          frame: el("iframe", { src: studentLink(s) + "&leraar=1", title: s.name || s.id }) };
+    tabs.push(t);
+    frames.append(t.frame);
+  }
+  showTab(t.id);
+}
+function closeTab(id) {
+  const i = tabs.findIndex(x => x.id === id);
+  if (i < 0) return;
+  tabs[i].frame.remove();
+  tabs.splice(i, 1);
+  showTab(activeTab === id ? (tabs[i] || tabs[i - 1] || {}).id || null : activeTab);
+}
+function showTab(id) {
+  activeTab = id;
+  app.hidden = id != null;
+  frames.hidden = id == null;
+  tabs.forEach(t => { t.frame.hidden = t.id !== id; });
+  tabbar.hidden = !tabs.length;
+  tabbar.textContent = "";
+  tabbar.append(el("button", { class: "tab" + (id == null ? " active" : ""), onclick: () => showTab(null) }, "Leerlingen"),
+    ...tabs.map(t => el("span", { class: "tab" + (t.id === id ? " active" : "") },
+      el("button", { class: "tab-name", onclick: () => showTab(t.id) }, t.name),
+      el("button", { class: "tab-x", title: "Sluiten", "aria-label": "Tab sluiten", onclick: () => closeTab(t.id) }, "×"))));
+}
+// Ctrl+W-like: Escape goes back to the list
+document.addEventListener("keydown", e => { if (e.key === "Escape" && activeTab != null) showTab(null); });
 
 // ---------- screens ----------
 function screen(...kids) { app.textContent = ""; app.append(...kids); }
@@ -395,7 +448,9 @@ function studentCard(s) {
         el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
         el("button", { onclick: () => copy(studentLink(s), "Link van " + (s.name || s.id) + " gekopieerd ✓") }, "🔗 Link"),
         // &leraar=1 → read-only view of the student's page (you can't tick for them)
-        el("a", { class: "btn", href: studentLink(s) + "&leraar=1", target: "_blank", rel: "noopener" }, "Bekijk"),
+        // opens as a tab inside this page (Ctrl/middle-click still opens a browser tab)
+        el("a", { class: "btn", href: studentLink(s) + "&leraar=1", target: "_blank", rel: "noopener",
+          onclick: ev => { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return; ev.preventDefault(); openTab(s); } }, "Bekijk"),
         el("button", { title: "Naam, taal, tarief en startsaldo", onclick: () => editStudent(s) }, "⚙️ Wijzigen"))),
     body);
 }
