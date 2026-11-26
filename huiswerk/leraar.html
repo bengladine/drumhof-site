@@ -82,6 +82,15 @@
   .tmsg .ghost { padding: 0 4px; float: right; }
   .tmsg-text { white-space: pre-wrap; }
   .thread.solved { opacity: .6; }
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }
+  @media (max-width: 640px) { .week-grid { grid-template-columns: 1fr; } .wday.empty { display: none; } }
+  .wday { background: var(--bg); border-radius: 10px; padding: 6px; min-height: 64px; }
+  .wday.today { outline: 2px solid var(--accent); }
+  .wday-head { font-size: .78rem; font-weight: 800; color: var(--muted); margin-bottom: 4px; text-transform: capitalize; }
+  .wles { display: block; width: 100%; text-align: left; font: inherit; font-size: .85rem; border: 0; border-radius: 8px;
+          background: #fff; padding: 4px 6px; margin-bottom: 4px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wles.past { opacity: .55; }
   .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto;
             background: var(--ink); padding: 6px 8px 0; }
   .tabbar[hidden], .frames[hidden], iframe[hidden], main[hidden] { display: none; }
@@ -229,6 +238,208 @@ window.addEventListener("message", e => {
 // Escape goes back to the list
 document.addEventListener("keydown", e => { if (e.key === "Escape" && activeTab != null) showTab(null); });
 
+// ---------- Google Calendar (drumhof.gent@gmail.com, primary calendar) ----------
+// Reading lessons + planning new ones. Google gives the page a calendar key for ~1 hour after you
+// press "Agenda verbinden" (a quick Google popup); after that one more click reconnects.
+// A lesson = an event whose title has the student's name + "drum", 🥁 or "les" (e.g. "Casper drum", "Bram 🥁").
+const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const CAL_API = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Brussels";
+let calToken = null;   // { token, exp }
+try { calToken = JSON.parse(sessionStorage.getItem("cal-token") || "null"); } catch (e) {}
+let calEvents = null;  // [{ id, start: Date, end: Date, title, sid }] (sid = matched student id)
+let calFrom = null, calTo = null; // range loaded
+let calErr = "";
+let weekOffset = 0;    // 0 = this week
+const calOK = () => calToken && calToken.exp > Date.now();
+const norm = x => (x || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function matchStudent(title) {
+  const n = norm(title);
+  if (!/drum|🥁|\bles\b|lesson/.test(n)) return null;
+  const words = n.split(/[^a-z0-9]+/).filter(Boolean);
+  // longest name first, so "Marie-Lou" wins over "Marie"
+  const cands = students.slice().sort((a, b) => (b.name || b.id).length - (a.name || a.id).length);
+  for (const s of cands) {
+    const nm = norm(s.name || s.id).split(/[^a-z0-9]+/).filter(Boolean);
+    if (nm.length && nm.every(w => words.includes(w))) return s.id;
+    if (words.includes(s.id)) return s.id;
+  }
+  return null;
+}
+async function connectCalendar() {
+  const prov = new A.GoogleAuthProvider();
+  prov.addScope(CAL_SCOPE);
+  prov.setCustomParameters({ login_hint: user.email });
+  try {
+    const res = await A.reauthenticateWithPopup(auth.currentUser, prov);
+    const cred = A.GoogleAuthProvider.credentialFromResult(res);
+    if (!cred || !cred.accessToken) throw new Error("geen toegang gekregen");
+    calToken = { token: cred.accessToken, exp: Date.now() + 55 * 60 * 1000 };
+    sessionStorage.setItem("cal-token", JSON.stringify(calToken));
+    try { localStorage.setItem("cal-connected", "1"); } catch (e) {}
+    calErr = ""; calEvents = null;
+    await loadCalendar();
+  } catch (e) {
+    calErr = "Agenda verbinden lukte niet: " + (e.code || e.message);
+    mainScreen();
+  }
+}
+async function calFetch(url, opts) {
+  const r = await fetch(url, Object.assign({}, opts, {
+    headers: Object.assign({ Authorization: "Bearer " + calToken.token, "Content-Type": "application/json" }, (opts || {}).headers) }));
+  if (r.status === 401) { calToken = null; sessionStorage.removeItem("cal-token"); throw new Error("expired"); }
+  if (!r.ok) {
+    let msg = r.status + "";
+    try { const j = await r.json(); msg = (j.error && j.error.message) || msg; } catch (e) {}
+    throw new Error(msg);
+  }
+  return r.status === 204 ? null : r.json();
+}
+const mondayOf = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const addD = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+// Loads from 8 weeks back (for "last lesson") to 10 weeks ahead, and further when you browse weeks.
+async function loadCalendar() {
+  if (!calOK()) { mainScreen(); return; }
+  const wk = mondayOf(new Date());
+  const from = addD(wk, Math.min(-56, weekOffset * 7)), to = addD(wk, Math.max(70, weekOffset * 7 + 7));
+  if (calEvents && calFrom <= from && calTo >= to) { mainScreen(); return; }
+  try {
+    let items = [], pageToken = "";
+    do {
+      const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true",
+        orderBy: "startTime", maxResults: "250" });
+      if (pageToken) q.set("pageToken", pageToken);
+      const j = await calFetch(CAL_API + "?" + q);
+      items = items.concat(j.items || []); pageToken = j.nextPageToken || "";
+    } while (pageToken);
+    calEvents = items.filter(e => e.start && e.start.dateTime && e.status !== "cancelled").map(e => ({
+      id: e.id, title: e.summary || "", start: new Date(e.start.dateTime), end: new Date(e.end.dateTime),
+      link: e.htmlLink, sid: matchStudent(e.summary) }));
+    calFrom = from; calTo = to; calErr = "";
+  } catch (e) {
+    calErr = e.message === "expired" ? "" : "Agenda lezen lukte niet: " + e.message;
+  }
+  mainScreen();
+}
+const lessons = () => (calEvents || []).filter(e => e.sid || /drum|🥁/i.test(e.title));
+function nextLesson(s) {
+  const now = Date.now();
+  return (calEvents || []).find(e => e.sid === s.id && e.end.getTime() > now) || null;
+}
+function lastCalLesson(s) {
+  const now = Date.now();
+  const past = (calEvents || []).filter(e => e.sid === s.id && e.start.getTime() < now);
+  return past.length ? past[past.length - 1] : null;
+}
+const hm = d => pad(d.getHours()) + ":" + pad(d.getMinutes());
+const dayLabel = d => d.toLocaleDateString("nl-BE", { weekday: "short", day: "numeric", month: "short" }).replace(".", "");
+
+function calendarCard() {
+  const card = el("section", { class: "card" });
+  if (!calOK()) {
+    card.append(el("div", { class: "student-head" }, el("h2", null, "📅 Lessen"),
+      el("button", { class: "primary", onclick: connectCalendar }, "Agenda verbinden")),
+      el("p", { class: "small muted", style: "margin:6px 0 0" },
+        "Toont je lessen van deze week en de volgende les bij elke leerling, uit je Google Agenda. " +
+        "Google vraagt dit ongeveer elk uur opnieuw te bevestigen."),
+      calErr ? el("p", { class: "error small" }, calErr) : null);
+    return card;
+  }
+  const wk = addD(mondayOf(new Date()), weekOffset * 7);
+  const end = addD(wk, 7);
+  const title = weekOffset === 0 ? "Deze week" : weekOffset === 1 ? "Volgende week" : weekOffset === -1 ? "Vorige week"
+    : "Week van " + wk.toLocaleDateString("nl-BE", { day: "numeric", month: "short" });
+  const go = n => { weekOffset = n; loadCalendar(); };
+  card.append(el("div", { class: "student-head" },
+    el("h2", null, "📅 " + title),
+    el("div", { class: "row" },
+      el("button", { class: "ghost", title: "Vorige week", onclick: () => go(weekOffset - 1) }, "‹"),
+      weekOffset ? el("button", { class: "ghost small", onclick: () => go(0) }, "Vandaag") : null,
+      el("button", { class: "ghost", title: "Volgende week", onclick: () => go(weekOffset + 1) }, "›"))));
+  if (calErr) card.append(el("p", { class: "error small" }, calErr));
+  if (!calEvents) { card.append(el("p", { class: "muted small" }, "Laden…")); return card; }
+  const grid = el("div", { class: "week-grid" });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 7; i++) {
+    const d = addD(wk, i), dn = addD(d, 1);
+    const evs = lessons().filter(e => e.start >= d && e.start < dn);
+    grid.append(el("div", { class: "wday" + (d.getTime() === today.getTime() ? " today" : "") + (evs.length ? "" : " empty") },
+      el("div", { class: "wday-head" }, dayLabel(d)),
+      evs.map(e => {
+        const s = students.find(x => x.id === e.sid);
+        return el("button", { class: "wles" + (e.end < new Date() ? " past" : ""),
+          title: e.title, onclick: () => s ? focusStudent(s.id) : window.open(e.link, "_blank") },
+          el("b", null, hm(e.start)), " ", s ? (s.name || s.id) : e.title);
+      })));
+  }
+  const n = lessons().filter(e => e.start >= wk && e.start < end).length;
+  card.append(grid, el("p", { class: "small muted", style: "margin:6px 0 0" }, n + " les" + (n === 1 ? "" : "sen") + " deze week"));
+  return card;
+}
+function focusStudent(id) {
+  open[id] = true; mainScreen();
+  const n = document.getElementById("st-" + id);
+  if (n) n.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function nextLessonLine(s) {
+  if (!calOK() || !calEvents) return null;
+  const e = nextLesson(s);
+  return el("div", { class: "small", style: "font-weight:400;margin-top:2px" },
+    e ? ["📅 Volgende les: ", el("strong", null, dayLabel(e.start) + " " + hm(e.start))]
+      : el("span", { class: "muted" }, "📅 Geen volgende les gepland"));
+}
+
+// Plan a lesson: adds "<Name> 🥁" to your Google Calendar
+function planLessonForm(s) {
+  if (!calOK()) { connectCalendar(); return; }
+  const prev = lastCalLesson(s) || nextLesson(s);
+  const nxt = nextLesson(s);
+  // default: a week after the next (or last) lesson, same time
+  const base = nxt ? addD(nxt.start, 7) : prev ? addD(prev.start, 7) : addD(new Date(), 7);
+  while (base < new Date()) base.setDate(base.getDate() + 7);
+  const iso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const date = el("input", { type: "date", value: iso(base) });
+  const time = el("input", { type: "time", value: prev || nxt ? hm((prev || nxt).start) : "17:00", step: "300" });
+  const dur = durationSelect(num(s.priv.duration) || (prev ? Math.round((prev.end - prev.start) / 60000) : 60));
+  const title = el("input", { value: (s.name || s.id) + " 🥁" });
+  const repeat = el("select", null, el("option", { value: "1" }, "Eén keer"),
+    el("option", { value: "4" }, "4 weken (wekelijks)"), el("option", { value: "8" }, "8 weken (wekelijks)"));
+  const err = el("p", { class: "error" });
+  const ov = el("div", { class: "overlay" }, el("div", { class: "sheet" },
+    el("h2", null, "Les plannen – " + (s.name || s.id)),
+    nxt ? el("p", { class: "small muted" }, "Volgende les staat al op " + dayLabel(nxt.start) + " " + hm(nxt.start) + ".") : null,
+    el("div", { class: "grid2" },
+      el("div", null, el("label", null, "Datum"), date),
+      el("div", null, el("label", null, "Uur"), time)),
+    el("div", { class: "grid2" },
+      el("div", null, el("label", null, "Duur"), dur),
+      el("div", null, el("label", null, "Herhalen"), repeat)),
+    el("label", null, "Titel in je agenda"), title,
+    err,
+    el("div", { class: "row", style: "margin-top:12px" },
+      el("button", { class: "primary", onclick: save }, "In agenda zetten"),
+      el("button", { onclick: () => ov.remove() }, "Annuleren"))));
+  async function save() {
+    if (!date.value || !time.value) { err.textContent = "Kies een datum en uur."; return; }
+    const start = new Date(date.value + "T" + time.value + ":00");
+    const endT = new Date(start.getTime() + (+dur.value) * 60000);
+    const local = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + hm(d) + ":00";
+    const body = { summary: title.value.trim() || (s.name || s.id) + " 🥁",
+      start: { dateTime: local(start), timeZone: TZ }, end: { dateTime: local(endT), timeZone: TZ } };
+    if (+repeat.value > 1) body.recurrence = ["RRULE:FREQ=WEEKLY;COUNT=" + repeat.value];
+    try {
+      await calFetch(CAL_API, { method: "POST", body: JSON.stringify(body) });
+      ov.remove(); calEvents = null; toast("✓ Les in je agenda gezet");
+      await loadCalendar();
+    } catch (e) {
+      err.textContent = e.message === "expired" ? "De agenda-verbinding is verlopen. Sluit dit, druk op 'Agenda verbinden' en probeer opnieuw."
+        : "Lukte niet: " + e.message;
+    }
+  }
+  document.body.append(ov);
+}
+
 // ---------- screens ----------
 function screen(...kids) { app.textContent = ""; app.append(...kids.filter(k => k != null && k !== false)); }
 
@@ -325,7 +536,7 @@ function mainScreen() {
   }
   for (const s of students) list.append(studentCard(s));
 
-  screen(head, !ledgerOK || !progressOK || !msgOK ? rulesBanner() : null, ledgerOK ? overviewCard() : null, list,
+  screen(head, !ledgerOK || !progressOK || !msgOK ? rulesBanner() : null, calendarCard(), ledgerOK ? overviewCard() : null, list,
     el("div", { class: "row", style: "margin-top:8px" },
       el("button", { onclick: addStudentForm }, "＋ Leerling")));
 }
@@ -451,7 +662,9 @@ function practiceRow(s) {
 function lastLessonDate(s) {
   const hw = (s.homework[0] && /^\d{4}-\d{2}-\d{2}/.test(s.homework[0].id)) ? s.homework[0].id.slice(0, 10) : "";
   const les = s.entries.filter(e => num(e.price) > 0 && e.date).map(e => e.date.slice(0, 10)).sort().pop() || "";
-  return hw > les ? hw : les;
+  const c = lastCalLesson(s);
+  const cal = c ? c.start.getFullYear() + "-" + pad(c.start.getMonth() + 1) + "-" + pad(c.start.getDate()) : "";
+  return [hw, les, cal].sort().pop();
 }
 function sinceLesson(s) {
   if (!progressOK) return null;
@@ -559,7 +772,7 @@ function studentCard(s) {
       el("button", { class: "ghost", onclick: () => editStudent(s) }, "Wijzigen")),
     ledgerSection(s));
 
-  return el("section", { class: "card" },
+  return el("section", { class: "card", id: "st-" + s.id },
     el("div", { class: "student-head" },
       el("button", { class: "ghost", style: "padding-left:0;text-align:left",
         onclick: () => { open[s.id] = !open[s.id]; if (open[s.id] && unread) { mainScreen(); return; } body.style.display = open[s.id] ? "" : "none"; } },
@@ -568,10 +781,12 @@ function studentCard(s) {
         el("span", { class: "small muted", style: "font-weight:400" },
           last ? "Laatste: " + (last.date || dateLabel(last.id, s.lang)) + " · " + hw.length + " opdracht" + (hw.length === 1 ? "" : "en")
                : "Nog geen huiswerk"),
+        nextLessonLine(s),
         sinceLesson(s),
         practiceRow(s)),
       el("div", { class: "row" },
         el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
+        el("button", { title: "Les in je Google Agenda zetten", onclick: () => planLessonForm(s) }, "📅 Les plannen"),
         el("button", { onclick: () => copy(studentLink(s), "Link van " + (s.name || s.id) + " gekopieerd ✓") }, "🔗 Link"),
         // &leraar=1 → read-only view of the student's page (you can't tick for them)
         // opens as a tab inside this page (Ctrl/middle-click still opens a browser tab)
@@ -972,7 +1187,7 @@ async function signIn() {
   A.onAuthStateChanged(auth, async u => {
     user = u;
     if (!u) return signInScreen();
-    try { await reload(); }
+    try { await reload(); if (calOK()) loadCalendar(); }
     catch (e) {
       if (e.code === "permission-denied") rulesScreen();
       else screen(el("p", { class: "error" }, "Fout bij laden: " + e.message));
