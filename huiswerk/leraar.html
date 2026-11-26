@@ -75,6 +75,12 @@
   .pday { width: 10px; height: 10px; border-radius: 3px; background: var(--line); }
   .pday.on { background: var(--ok); }
   .pday.seen { background: #b9dcc7; }
+  .thread { border-top: 1px solid var(--line); padding: 8px 0; }
+  .tmsg { border-radius: 10px; padding: 6px 10px; margin: 6px 0; max-width: 92%; }
+  .tmsg.them { background: #efe9dc; }
+  .tmsg.me { background: #e3f1e8; margin-left: auto; }
+  .tmsg .ghost { padding: 0 4px; float: right; }
+  .tmsg-text { white-space: pre-wrap; }
   .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto;
             background: var(--ink); padding: 6px 8px 0; }
   .tabbar[hidden], .frames[hidden], iframe[hidden], main[hidden] { display: none; }
@@ -110,6 +116,8 @@ const open = {};   // which students are unfolded
 const showAll = {}; // which students show their full ledger
 let ledgerOK = true; // false while the Firestore rules don't cover the private (money) data yet
 let progressOK = true; // false while the Firestore rules don't cover the practice ticks (progress/<id>) yet
+let msgOK = true;      // false while the Firestore rules don't cover messages (progress/<id>/messages) yet
+const replyOpen = {};  // message id → reply box open
 let progress = {};     // id → { days: ["2026-11-24", …], tempos, updated } as saved by the student's page
 const DURATIONS = [30, 45, 60, 90, 120];
 const METHODS = ["Cash", "Overschrijving", "Payconiq", "Andere"];
@@ -258,6 +266,15 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(["days", "tempos", "opened", "updated"])
         && request.resource.data.days is list && request.resource.data.days.size() <= 3000
         && request.resource.data.tempos is map;
+      // Questions/notes from the student page, replies from the teacher
+      match /messages/{id} {
+        allow read: if true;
+        allow create: if exists(/databases/$(database)/documents/students/$(student))
+          && request.resource.data.keys().hasOnly(["from", "text", "ex", "exTitle", "at"])
+          && request.resource.data.text is string && request.resource.data.text.size() <= 1000
+          && (request.resource.data.from == "student" || (request.resource.data.from == "teacher" && isTeacher()));
+        allow update, delete: if isTeacher();
+      }
     }
     // Boekhouding (rates, lessons, payments): only the teacher can read or write
     match /private/{document=**} {
@@ -298,7 +315,7 @@ function mainScreen() {
   }
   for (const s of students) list.append(studentCard(s));
 
-  screen(head, !ledgerOK || !progressOK ? rulesBanner() : null, ledgerOK ? overviewCard() : null, list,
+  screen(head, !ledgerOK || !progressOK || !msgOK ? rulesBanner() : null, ledgerOK ? overviewCard() : null, list,
     el("div", { class: "row", style: "margin-top:8px" },
       el("button", { onclick: addStudentForm }, "＋ Leerling")));
 }
@@ -308,7 +325,9 @@ function rulesBanner() {
   return el("div", { class: "card" },
     !ledgerOK
       ? el("p", null, el("strong", null, "Boekhouding: nog één stap."), " De database-regels moeten bijgewerkt worden zodat alleen jij de betalingen kan zien.")
-      : el("p", null, el("strong", null, "Oefendagen: nog één stap."), " De database-regels moeten bijgewerkt worden zodat leerlingen hun oefendagen kunnen bewaren en jij ze hier ziet."),
+      : !progressOK
+      ? el("p", null, el("strong", null, "Oefendagen: nog één stap."), " De database-regels moeten bijgewerkt worden zodat leerlingen hun oefendagen kunnen bewaren en jij ze hier ziet.")
+      : el("p", null, el("strong", null, "Berichten: nog één stap."), " De database-regels moeten bijgewerkt worden zodat leerlingen je een vraag kunnen sturen en jij kan antwoorden."),
     el("p", { class: "small muted" }, "Firebase console → Firestore Database → Rules → alles vervangen → Publish → even wachten → herladen."),
     el("div", { class: "row" },
       el("button", { class: "primary", onclick: () => copy(txt, "Regels gekopieerd ✓") }, "Regels kopiëren"),
@@ -418,10 +437,102 @@ function practiceRow(s) {
          : (streak ? "🔥 " + streak + " · " : "") + week + "/7 dagen" + (last ? " · laatst " + dateLabel(last, "nl") : "")));
 }
 
+// "Since last lesson": last lesson = newest homework date or newest logged lesson, whichever is later
+function lastLessonDate(s) {
+  const hw = (s.homework[0] && /^\d{4}-\d{2}-\d{2}/.test(s.homework[0].id)) ? s.homework[0].id.slice(0, 10) : "";
+  const les = s.entries.filter(e => num(e.price) > 0 && e.date).map(e => e.date.slice(0, 10)).sort().pop() || "";
+  return hw > les ? hw : les;
+}
+function sinceLesson(s) {
+  if (!progressOK) return null;
+  const L = lastLessonDate(s);
+  if (!L) return null;
+  const p = progress[s.id] || {};
+  const practiced = (p.days || []).filter(d => d > L).length;
+  const opened = (p.opened || []).filter(d => d > L).length;
+  // goals of the newest homework (same ids and "done" logic as the student page)
+  const h = s.homework[0], tick = (p.tempos || {});
+  let goals = "";
+  if (h) {
+    const exs = Array.isArray(h.exercises) ? h.exercises : [h];
+    const ids = Array.isArray(h.exercises) ? exs.map((ex, i) => h.id + "/" + (ex.id || i)) : [h.id];
+    const isDone = (ex, id) => { const t = (ex.tempos && ex.tempos.length) ? ex.tempos : ["done"]; return t.every(x => (tick[id] || []).includes(x)); };
+    goals = exs.filter((ex, i) => isDone(ex, ids[i])).length + "/" + exs.length + " doelen gehaald";
+  }
+  return el("div", { class: "small", style: "font-weight:400;margin-top:2px" },
+    el("strong", null, "Sinds les " + dateLabel(L, "nl") + ": "),
+    practiced + "× geoefend · " + opened + "× geopend" + (goals ? " · " + goals : ""));
+}
+
+// Messages: unread = student messages after the time you last opened this student's card
+function msgSeenAt(s) {
+  if (ledgerOK && s.priv && s.priv.msgSeen) return s.priv.msgSeen;
+  try { return localStorage.getItem("leraar-msgseen:" + s.id) || ""; } catch (e) { return ""; }
+}
+function markMsgsSeen(s) {
+  const last = (s.msgs || []).filter(m => m.from === "student").map(m => m.at).sort().pop();
+  if (!last || last <= msgSeenAt(s)) return;
+  try { localStorage.setItem("leraar-msgseen:" + s.id, last); } catch (e) {}
+  if (ledgerOK) { s.priv.msgSeen = last; F.setDoc(F.doc(db, "private", s.id), { msgSeen: last }, { merge: true }).catch(e => console.warn(e)); }
+}
+const unreadCount = s => (s.msgs || []).filter(m => m.from === "student" && m.at > msgSeenAt(s)).length;
+const timeLabel = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("nl-BE", { day: "numeric", month: "short" }) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+
+function messagesSection(s, seen) {
+  if (!msgOK) return null;
+  const ms = s.msgs || [];
+  const wrap = el("div", { class: "money" }, el("h3", null, "💬 Berichten"));
+  if (!ms.length) { wrap.append(el("p", { class: "small muted", style: "margin:6px 0 0" }, "Nog geen berichten. Leerlingen kunnen onder elke oefening een vraag sturen.")); return wrap; }
+  // group by exercise, newest thread first
+  const threads = new Map();
+  for (const m of ms) { if (!threads.has(m.ex)) threads.set(m.ex, []); threads.get(m.ex).push(m); }
+  const ordered = [...threads.values()].sort((a, b) => (a[a.length - 1].at < b[b.length - 1].at ? 1 : -1));
+  for (const th of ordered) {
+    const lastStudent = th.filter(m => m.from === "student").pop();
+    const box = el("div", { class: "thread" },
+      el("div", { class: "small muted", style: "font-weight:700" }, th[0].exTitle || "Oefening"),
+      th.map(m => el("div", { class: "tmsg " + (m.from === "teacher" ? "me" : "them") },
+        el("div", { class: "small muted" }, (m.from === "teacher" ? "Jij" : (s.name || s.id)) + " · " + timeLabel(m.at),
+          m.from === "student" && m.at > seen ? el("span", { class: "chip owe", style: "margin-left:6px" }, "nieuw") : null,
+          el("button", { class: "ghost small", title: "Bericht verwijderen", onclick: () => removeMessage(s, m) }, "🗑️")),
+        el("div", { class: "tmsg-text" }, m.text))));
+    const key = lastStudent ? lastStudent.id : th[0].id;
+    if (replyOpen[key]) {
+      const ta = el("textarea", { maxlength: "1000", placeholder: "Je antwoord…" });
+      const send = el("button", { class: "primary" }, "Versturen");
+      send.addEventListener("click", async () => {
+        const text = ta.value.trim(); if (!text) return ta.focus();
+        send.disabled = true;
+        try {
+          await F.addDoc(F.collection(db, "progress", s.id, "messages"),
+            { from: "teacher", text, ex: th[0].ex, exTitle: th[0].exTitle || "", at: new Date().toISOString() });
+          delete replyOpen[key]; open[s.id] = true; await reload(); toast("Antwoord verstuurd ✓");
+        } catch (e) { send.disabled = false; alert("Versturen mislukt: " + e.message); }
+      });
+      box.append(ta, el("div", { class: "row", style: "margin-top:6px" }, send,
+        el("button", { class: "ghost", onclick: () => { delete replyOpen[key]; mainScreen(); } }, "Annuleren")));
+      setTimeout(() => ta.focus(), 0);
+    } else {
+      box.append(el("button", { class: "ghost small", style: "padding-left:0", onclick: () => { replyOpen[key] = true; open[s.id] = true; mainScreen(); } }, "↩︎ Antwoorden"));
+    }
+    wrap.append(box);
+  }
+  return wrap;
+}
+async function removeMessage(s, m) {
+  if (!confirm("Dit bericht verwijderen? De leerling ziet het dan ook niet meer.")) return;
+  try { await F.deleteDoc(F.doc(db, "progress", s.id, "messages", m.id)); open[s.id] = true; await reload(); }
+  catch (e) { alert("Verwijderen mislukt: " + e.message); }
+}
+
 function studentCard(s) {
   const hw = s.homework;
   const last = hw[0];
+  const seenBefore = msgSeenAt(s); // "nieuw" labels show once, the time you open the card
+  if (open[s.id]) markMsgsSeen(s);
+  const unread = unreadCount(s);
   const body = el("div", { style: open[s.id] ? "" : "display:none" },
+    messagesSection(s, seenBefore),
     el("ul", { class: "hw-list" },
       hw.length ? hw.map(h => el("li", null,
         el("span", null, el("strong", null, h.date || dateLabel(h.id, s.lang)), " · ",
@@ -438,11 +549,13 @@ function studentCard(s) {
   return el("section", { class: "card" },
     el("div", { class: "student-head" },
       el("button", { class: "ghost", style: "padding-left:0;text-align:left",
-        onclick: () => { open[s.id] = !open[s.id]; body.style.display = open[s.id] ? "" : "none"; } },
-        el("h2", null, s.name || s.id, " ", ledgerOK ? balanceChip(s) : null),
+        onclick: () => { open[s.id] = !open[s.id]; if (open[s.id] && unread) { mainScreen(); return; } body.style.display = open[s.id] ? "" : "none"; } },
+        el("h2", null, s.name || s.id, " ", ledgerOK ? balanceChip(s) : null,
+          unread ? el("span", { class: "chip owe", style: "margin-left:6px" }, "💬 " + unread + " nieuw") : null),
         el("span", { class: "small muted", style: "font-weight:400" },
           last ? "Laatste: " + (last.date || dateLabel(last.id, s.lang)) + " · " + hw.length + " opdracht" + (hw.length === 1 ? "" : "en")
                : "Nog geen huiswerk"),
+        sinceLesson(s),
         practiceRow(s)),
       el("div", { class: "row" },
         el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
@@ -648,6 +761,7 @@ async function removeStudent(s, ov) {
   if (typed.trim().toLowerCase() !== nm.toLowerCase()) { alert("Naam klopt niet — er is niets verwijderd."); return; }
   try {
     const subs = [F.getDocs(F.collection(db, "students", s.id, "homework"))];
+    if (msgOK) subs.push(F.getDocs(F.collection(db, "progress", s.id, "messages")));
     if (ledgerOK) subs.push(F.getDocs(F.collection(db, "private", s.id, "lessen")));
     const snaps = await Promise.all(subs);
     await Promise.all(snaps.flatMap(sn => sn.docs.map(d => F.deleteDoc(d.ref))));
@@ -804,6 +918,14 @@ async function reload() {
     return Object.assign({ id: d.id }, d.data(), { homework, priv: (pv && pv.exists() && pv.data()) || {}, entries });
   }));
   students = list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+  msgOK = true;
+  await Promise.all(students.map(async s => {
+    s.msgs = [];
+    try {
+      const ms = await F.getDocs(F.collection(db, "progress", s.id, "messages"));
+      s.msgs = ms.docs.map(m => Object.assign({ id: m.id }, m.data())).sort((a, b) => (a.at < b.at ? -1 : 1));
+    } catch (e) { if (e.code === "permission-denied") msgOK = false; else console.warn("messages:", e); }
+  }));
   progress = {}; progressOK = true;
   try {
     const ps = await F.getDocs(F.collection(db, "progress"));

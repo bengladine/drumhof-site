@@ -112,6 +112,23 @@
   .overlay-bar button { padding: 10px 14px; border-radius: 10px; border: 0; background: var(--ink); color: #fff;
                         font: inherit; font-weight: 700; }
   .error { background: #fff; border-radius: var(--radius); padding: 20px; }
+  /* messages to/from the teacher */
+  .msgs .msg { border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; max-width: 90%; }
+  .msg.from-student { background: #efe9dc; margin-left: auto; }
+  .msg.from-teacher { background: #e3f1e8; }
+  .msg-who { display: block; font-size: .75rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .msg-text { white-space: pre-wrap; }
+  .msg-new { background: var(--accent); color: #fff; border-radius: 99px; padding: 0 7px; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+  .ask-btn { font: inherit; font-weight: 700; background: none; border: 2px dashed var(--line); color: var(--ink);
+             border-radius: 12px; padding: 10px 14px; width: 100%; cursor: pointer; text-align: left; }
+  .msg-input { width: 100%; min-height: 80px; font: inherit; padding: 10px; border: 2px solid var(--line); border-radius: 12px; resize: vertical; }
+  .msg-row { display: flex; gap: 8px; margin-top: 8px; }
+  .send-btn { font: inherit; font-weight: 700; background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 9px 16px; cursor: pointer; }
+  .cancel-btn { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; }
+  .msg-status { color: #b3261e; font-size: .9rem; margin: 6px 0 0; }
+  .msg-toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ok); color: #fff;
+               padding: 12px 18px; border-radius: 12px; font-weight: 700; z-index: 30; }
+  .reply-banner { background: #e3f1e8; border-radius: 12px; padding: 10px 14px; font-weight: 700; margin-bottom: 12px; }
   /* teacher's read-only view (&leraar=1): ticks can't be changed */
   .view-banner { background: #1d1d1b; color: #f6f4ef; border-radius: 12px; padding: 10px 14px;
                  font-size: .9rem; font-weight: 600; margin-bottom: 12px; }
@@ -320,7 +337,11 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           pdf: "📄 Open de noten (PDF)", goal: "Jouw doel", done: "Gelukt", doneAt: "Gelukt op",
           goalDone: "🎉 Doel gehaald! Laat het zien in de les.", listen: "Luister & speel mee",
           tempoNow: b => "Tempo nu: " + b + " bpm — druk op ▶ in de noten", focus: "Let op",
-          zoom: "🔍 Groter bekijken", close: "✕ Sluiten", rotate: "Tip: draai je gsm" },
+          zoom: "🔍 Groter bekijken", close: "✕ Sluiten", rotate: "Tip: draai je gsm",
+          ask: "💬 Vraag of opmerking voor je leraar", askPh: "Bv. de fill in maat 4 lukt nog niet…",
+          send: "Versturen", cancel: "Annuleren", you: "Jij", teacher: "Leraar", isNew: "nieuw",
+          sent: "Verstuurd ✓ Je leraar ziet het.", sendFail: "Versturen lukte niet. Probeer later opnieuw.",
+          replied: "💬 Je leraar heeft geantwoord — kijk bij de oefening." },
     en: { hi: "Hi", intro: "This is your drum homework.", none: "No homework yet.", previous: "Previous homework",
           days: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"], streak1: "day in a row", streakN: "days in a row",
           doneToday: "✓ Practised today!", practiceToday: "I practised today", thisWeek: "This week",
@@ -328,7 +349,11 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           pdf: "📄 Open the sheet music (PDF)", goal: "Your goal", done: "Done", doneAt: "Done at",
           goalDone: "🎉 Goal reached! Show it in your next lesson.", listen: "Listen & play along",
           tempoNow: b => "Tempo now: " + b + " bpm — press ▶ in the notation", focus: "Focus on",
-          zoom: "🔍 View larger", close: "✕ Close", rotate: "Tip: turn your phone sideways" }
+          zoom: "🔍 View larger", close: "✕ Close", rotate: "Tip: turn your phone sideways",
+          ask: "💬 Question or note for your teacher", askPh: "E.g. the fill in bar 4 doesn't work yet…",
+          send: "Send", cancel: "Cancel", you: "You", teacher: "Teacher", isNew: "new",
+          sent: "Sent ✓ Your teacher will see it.", sendFail: "Couldn't send. Please try again later.",
+          replied: "💬 Your teacher replied — see the exercise." }
   };
   const T = k => (LABELS[(data && data.lang) || "nl"] || LABELS.nl)[k];
 
@@ -344,6 +369,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     app.textContent = "";
     if (VIEW) app.append(el("div", { class: "view-banner" },
       "👀 Leraar-weergave: je ziet wat " + (data.name || code) + " aanvinkte. Aanvinken kan hier niet."));
+    if (newReplies()) app.append(el("div", { class: "reply-banner" }, T("replied")));
     app.append(el("h1", null, T("hi") + " " + (data.name || "") + " 👋"));
     app.append(el("p", { class: "sub" }, T("intro")));
     app.append(streakCard());
@@ -397,7 +423,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   }
   function assignmentView(a) {
     const baseId = a.id || a.title || a.goal;
-    if (!Array.isArray(a.exercises)) return exerciseView(a, baseId);
+    if (!Array.isArray(a.exercises)) return exerciseView(a, baseId, a.title || a.goal);
 
     const exs = a.exercises;
     const ids = exs.map((ex, i) => baseId + "/" + (ex.id || i));
@@ -420,14 +446,14 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           el("span", null,
             ex.type ? el("span", { class: "ex-type" }, ex.type) : null,
             el("span", { class: "ex-title" }, ex.title || ex.goal))),
-        el("div", { class: "ex-body" }, exerciseView(Object.assign({}, ex, { title: null }), id)));
+        el("div", { class: "ex-body" }, exerciseView(Object.assign({}, ex, { title: null }), id, ex.title || ex.goal)));
       d.addEventListener("toggle", () => { openEx[id] = d.open; });
       wrap.append(d);
     });
     return wrap;
   }
 
-  function exerciseView(a, id) {
+  function exerciseView(a, id, exTitle) {
     const tempos = a.tempos || [];
     const done = state.tempos[id] || [];
     const allDone = isDone(a, id);
@@ -498,7 +524,69 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       wrap.append(el("section", { class: "card" },
         el("a", { class: "pdf-btn", href: a.pdf, target: "_blank", rel: "noopener" }, T("pdf"))));
     }
+    // 5. Questions / notes for the teacher, and the teacher's replies
+    wrap.append(messageCard(id, exTitle));
     return wrap;
+  }
+
+  // ---------- messages (progress/<code>/messages): student <-> teacher, per exercise ----------
+  let msgs = [];          // [{ id, from: "student"|"teacher", text, ex, exTitle, at }]
+  const drafts = {};      // exercise id -> text being typed (survives re-render)
+  const MSG_SEEN = "drumhw-msgseen:" + code;
+  let msgSeen = "";
+  try { msgSeen = VIEW ? "9999" : (localStorage.getItem(MSG_SEEN) || ""); } catch (e) {}
+  async function loadMessages() {
+    try {
+      const f = await getDb(); if (!f) return false;
+      const sn = await f.L.getDocs(f.L.collection(f.db, "progress", code, "messages"));
+      const next = sn.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => (a.at < b.at ? -1 : 1));
+      const changed = JSON.stringify(next) !== JSON.stringify(msgs);
+      msgs = next;
+      return changed;
+    } catch (e) { console.warn("messages:", e); return false; }
+  }
+  function markRepliesSeen() {
+    if (VIEW) return;
+    const last = msgs.filter(m => m.from === "teacher").map(m => m.at).sort().pop();
+    if (last && last > msgSeen) { try { localStorage.setItem(MSG_SEEN, last); } catch (e) {} }
+  }
+  const newReplies = () => msgs.some(m => m.from === "teacher" && m.at > msgSeen);
+  function messageCard(id, exTitle) {
+    const thread = msgs.filter(m => m.ex === id);
+    const card = el("section", { class: "card msgs" });
+    thread.forEach(m => card.append(el("div", { class: "msg " + (m.from === "teacher" ? "from-teacher" : "from-student") },
+      el("span", { class: "msg-who" }, (m.from === "teacher" ? T("teacher") : T("you")),
+        m.from === "teacher" && m.at > msgSeen ? el("span", { class: "msg-new" }, T("isNew")) : null),
+      el("span", { class: "msg-text" }, m.text))));
+    if (VIEW) return thread.length ? card : el("span");
+    if (drafts[id] == null) {
+      card.append(el("button", { class: "ask-btn", onclick: () => { drafts[id] = ""; render(); } }, T("ask")));
+      return card;
+    }
+    const ta = el("textarea", { class: "msg-input", maxlength: "1000", placeholder: T("askPh") });
+    ta.value = drafts[id];
+    ta.addEventListener("input", () => { drafts[id] = ta.value; });
+    const status = el("p", { class: "msg-status" });
+    const send = el("button", { class: "send-btn" }, T("send"));
+    send.addEventListener("click", async () => {
+      const text = ta.value.trim(); if (!text) return ta.focus();
+      send.disabled = true;
+      try {
+        const f = await getDb(); if (!f) throw new Error("offline");
+        const m = { from: "student", text, ex: id, exTitle: exTitle || "", at: new Date().toISOString() };
+        const ref = await f.L.addDoc(f.L.collection(f.db, "progress", code, "messages"), m);
+        msgs.push(Object.assign({ id: ref.id }, m));
+        delete drafts[id]; render();
+        toastMsg(T("sent"));
+      } catch (e) { console.warn("send:", e); send.disabled = false; status.textContent = T("sendFail"); }
+    });
+    const cancel = el("button", { class: "cancel-btn" }, T("cancel"));
+    cancel.addEventListener("click", () => { delete drafts[id]; render(); });
+    card.append(ta, el("div", { class: "msg-row" }, send, cancel), status);
+    return card;
+  }
+  function toastMsg(t) {
+    const n = el("div", { class: "msg-toast" }, t); document.body.append(n); setTimeout(() => n.remove(), 3000);
   }
 
   // ---------- boot ----------
@@ -538,11 +626,14 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     if (!data) throw new Error("not found");
     document.documentElement.lang = data.lang || "nl";
     render();
-    // Ticks from other devices: fetch now and whenever the app comes back to the front.
-    if (await pullProgress()) render();
-    document.addEventListener("visibilitychange", async () => {
-      if (document.visibilityState === "visible" && await pullProgress()) render();
-    });
+    // Ticks + messages from other devices: fetch now and whenever the app comes back to the front.
+    const refresh = async () => {
+      const [a, b] = await Promise.all([pullProgress(), loadMessages()]);
+      if (a || b) render();
+      markRepliesSeen(); // "new" labels stay visible until the next visit
+    };
+    await refresh();
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });
   } catch (e) {
     app.innerHTML = '<div class="error">Huiswerk niet gevonden. Vraag je drumleraar om de juiste link.</div>';
   }
