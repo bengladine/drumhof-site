@@ -481,7 +481,8 @@ function editStudent(s) {
     err,
     el("div", { class: "row", style: "margin-top:12px" },
       el("button", { class: "primary", onclick: save }, s ? "Opslaan" : "Toevoegen"),
-      el("button", { onclick: () => ov.remove() }, "Annuleren"))));
+      el("button", { onclick: () => ov.remove() }, "Annuleren"),
+      s ? el("button", { class: "danger", style: "margin-left:auto", onclick: () => removeStudent(s, ov) }, "🗑️ Leerling verwijderen") : null)));
   async function save() {
     const nm = name.value.trim();
     const id = s ? s.id : slug(nm);
@@ -634,6 +635,31 @@ async function removeHomework(s, h) {
   if (!confirm("Huiswerk van " + (h.date || h.id) + " voor " + (s.name || s.id) + " verwijderen? Dit kan niet ongedaan gemaakt worden.")) return;
   try { await F.deleteDoc(F.doc(db, "students", s.id, "homework", h.id)); await reload(); toast("Verwijderd"); }
   catch (e) { alert("Verwijderen mislukt: " + e.message); }
+}
+
+// Removes the student everywhere: page + homework, practice ticks, and (teacher-only) lessons & payments.
+// Their link stops working. Asks to type the name, since this can't be undone.
+async function removeStudent(s, ov) {
+  const nm = s.name || s.id;
+  const typed = prompt("Leerling " + nm + " verwijderen?\n\nDit wist hun pagina (de link werkt niet meer), al hun huiswerk, " +
+    "oefendagen" + (ledgerOK ? " én hun lessen & betalingen (download eventueel eerst de CSV)" : "") +
+    ".\nDit kan niet ongedaan gemaakt worden.\n\nTyp de naam \"" + nm + "\" om te bevestigen:");
+  if (typed == null) return;
+  if (typed.trim().toLowerCase() !== nm.toLowerCase()) { alert("Naam klopt niet — er is niets verwijderd."); return; }
+  try {
+    const subs = [F.getDocs(F.collection(db, "students", s.id, "homework"))];
+    if (ledgerOK) subs.push(F.getDocs(F.collection(db, "private", s.id, "lessen")));
+    const snaps = await Promise.all(subs);
+    await Promise.all(snaps.flatMap(sn => sn.docs.map(d => F.deleteDoc(d.ref))));
+    const tops = [F.deleteDoc(F.doc(db, "progress", s.id))];
+    if (ledgerOK) tops.push(F.deleteDoc(F.doc(db, "private", s.id)));
+    await Promise.all(tops.map(p => p.catch(e => console.warn("delete:", e))));
+    await F.deleteDoc(F.doc(db, "students", s.id)); // last: if anything above failed, the student is still there
+    if (ov) ov.remove();
+    closeTab(s.id);
+    await reload();
+    toast(nm + " is verwijderd");
+  } catch (e) { alert("Verwijderen mislukt: " + e.message); }
 }
 
 // ---------- lessons & payments ----------

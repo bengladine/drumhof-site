@@ -530,8 +530,12 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     return d;
   }
   try {
-    try { data = await fromDatabase(); } catch (e) { console.warn("database:", e); }
-    if (!data) data = await fromOldFile();
+    // Old GitHub file only when the database can't be reached (or isn't connected). A student that
+    // isn't in the database (e.g. deleted on the teacher page) gets "not found", not their old homework.
+    let dbOK = !!firebaseConfig;
+    try { data = await fromDatabase(); } catch (e) { dbOK = false; console.warn("database:", e); }
+    if (!data && !dbOK) data = await fromOldFile();
+    if (!data) throw new Error("not found");
     document.documentElement.lang = data.lang || "nl";
     render();
     // Ticks from other devices: fetch now and whenever the app comes back to the front.
