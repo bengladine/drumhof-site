@@ -147,10 +147,61 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     try { return JSON.parse(localStorage.getItem(KEY)) || { days: [], tempos: {} }; }
     catch (e) { return { days: [], tempos: {} }; }
   }
-  function save(state) {
+  function saveLocal(state) {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
   }
+  function save(state) {
+    // Every change is still kept on this phone first; "dirty" = not yet in the database.
+    state.dirty = true; saveLocal(state); pushProgress();
+  }
   let state = load();
+
+  // ---------- practice sync (database, so ticks show up on every device + on the teacher page) ----------
+  // No accounts: the student's link (?s=code) is the key. progress/<code> = { days, tempos, updated }.
+  // The database is the truth once this phone has synced; changes made while offline ("dirty")
+  // are merged in (union) the next time, so nothing ticked is ever lost.
+  let dbP = null;
+  function getDb() {
+    if (!firebaseConfig) return Promise.resolve(null);
+    return dbP = dbP || (async () => {
+      const { initializeApp } = await import(FB + "firebase-app.js");
+      const L = await import(FB + "firebase-firestore-lite.js");
+      return { L, db: L.getFirestore(initializeApp(firebaseConfig)) };
+    })();
+  }
+  const union = (a, b) => Array.from(new Set((a || []).concat(b || []))).sort();
+  function mergeInto(local, cloud) {
+    const tempos = Object.assign({}, cloud.tempos);
+    Object.keys(local.tempos || {}).forEach(k => { tempos[k] = union(tempos[k], local.tempos[k]); });
+    return { days: union(local.days, cloud.days), tempos };
+  }
+  async function pushProgress() {
+    try {
+      const f = await getDb(); if (!f) return;
+      await f.L.setDoc(f.L.doc(f.db, "progress", code),
+        { days: state.days, tempos: state.tempos || {}, updated: new Date().toISOString() });
+      state.dirty = false; state.synced = true; saveLocal(state);
+    } catch (e) { console.warn("progress push:", e); }
+  }
+  async function pullProgress() {
+    try {
+      const f = await getDb(); if (!f) return false;
+      const snap = await f.L.getDoc(f.L.doc(f.db, "progress", code));
+      const cloud = snap.exists() ? snap.data() : null;
+      const before = JSON.stringify([state.days, state.tempos]);
+      if (!cloud) {
+        if (state.days.length || Object.keys(state.tempos || {}).length) await pushProgress();
+        return false;
+      }
+      const next = (state.dirty || !state.synced) ? mergeInto(state, cloud)
+        : { days: cloud.days || [], tempos: cloud.tempos || {} };
+      const needsPush = state.dirty || !state.synced;
+      state.days = next.days; state.tempos = next.tempos; state.synced = true;
+      saveLocal(state);
+      if (needsPush) await pushProgress();
+      return JSON.stringify([state.days, state.tempos]) !== before;
+    } catch (e) { console.warn("progress pull:", e); return false; }
+  }
 
   // ---------- dates ----------
   const pad = n => String(n).padStart(2, "0");
@@ -437,10 +488,9 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   }
   // 1) the database (homework Ben adds on the teacher page); 2) else the old JSON file on GitHub
   async function fromDatabase() {
-    if (!firebaseConfig) return null;
-    const { initializeApp } = await import(FB + "firebase-app.js");
-    const L = await import(FB + "firebase-firestore-lite.js");
-    const db = L.getFirestore(initializeApp(firebaseConfig));
+    const f = await getDb();
+    if (!f) return null;
+    const { L, db } = f;
     const s = await L.getDoc(L.doc(db, "students", code));
     if (!s.exists()) return null;
     const hw = await L.getDocs(L.collection(db, "students", code, "homework"));
@@ -464,6 +514,11 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     if (!data) data = await fromOldFile();
     document.documentElement.lang = data.lang || "nl";
     render();
+    // Ticks from other devices: fetch now and whenever the app comes back to the front.
+    if (await pullProgress()) render();
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState === "visible" && await pullProgress()) render();
+    });
   } catch (e) {
     app.innerHTML = '<div class="error">Huiswerk niet gevonden. Vraag je drumleraar om de juiste link.</div>';
   }

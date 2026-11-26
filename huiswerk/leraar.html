@@ -70,6 +70,11 @@
   .stat b { display: block; font-size: 1.2rem; }
   .check { display: flex; gap: 8px; align-items: center; font-weight: 700; margin: 4px 0; }
   .check input { width: auto; }
+  .practice { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font-weight: 400; }
+  .pdots { display: inline-flex; gap: 3px; }
+  .pday { width: 10px; height: 10px; border-radius: 3px; background: var(--line); }
+  .pday.on { background: var(--ok); }
+  .pday.today { outline: 2px solid var(--ink); outline-offset: 1px; }
 </style>
 </head>
 <body>
@@ -91,6 +96,8 @@ let students = []; // [{id, name, lang, homework: [{id, ...}], priv: {price, dur
 const open = {};   // which students are unfolded
 const showAll = {}; // which students show their full ledger
 let ledgerOK = true; // false while the Firestore rules don't cover the private (money) data yet
+let progressOK = true; // false while the Firestore rules don't cover the practice ticks (progress/<id>) yet
+let progress = {};     // id → { days: ["2026-11-24", …], tempos, updated } as saved by the student's page
 const DURATIONS = [30, 45, 60, 90, 120];
 const METHODS = ["Cash", "Overschrijving", "Payconiq", "Andere"];
 
@@ -189,6 +196,15 @@ service cloud.firestore {
         allow write: if isTeacher();
       }
     }
+    // Practice ticks: the student's page saves them by link (no account), only for existing students
+    match /progress/{student} {
+      allow get: if true;
+      allow list, delete: if isTeacher();
+      allow create, update: if exists(/databases/$(database)/documents/students/$(student))
+        && request.resource.data.keys().hasOnly(["days", "tempos", "updated"])
+        && request.resource.data.days is list && request.resource.data.days.size() <= 3000
+        && request.resource.data.tempos is map;
+    }
     // Boekhouding (rates, lessons, payments): only the teacher can read or write
     match /private/{document=**} {
       allow read, write: if isTeacher();
@@ -228,7 +244,7 @@ function mainScreen() {
   }
   for (const s of students) list.append(studentCard(s));
 
-  screen(head, ledgerOK ? overviewCard() : rulesBanner(), list,
+  screen(head, !ledgerOK || !progressOK ? rulesBanner() : null, ledgerOK ? overviewCard() : null, list,
     el("div", { class: "row", style: "margin-top:8px" },
       el("button", { onclick: addStudentForm }, "＋ Leerling")));
 }
@@ -236,7 +252,9 @@ function mainScreen() {
 function rulesBanner() {
   const txt = rulesText(user.email);
   return el("div", { class: "card" },
-    el("p", null, el("strong", null, "Boekhouding: nog één stap."), " De database-regels moeten bijgewerkt worden zodat alleen jij de betalingen kan zien."),
+    !ledgerOK
+      ? el("p", null, el("strong", null, "Boekhouding: nog één stap."), " De database-regels moeten bijgewerkt worden zodat alleen jij de betalingen kan zien.")
+      : el("p", null, el("strong", null, "Oefendagen: nog één stap."), " De database-regels moeten bijgewerkt worden zodat leerlingen hun oefendagen kunnen bewaren en jij ze hier ziet."),
     el("p", { class: "small muted" }, "Firebase console → Firestore Database → Rules → alles vervangen → Publish → even wachten → herladen."),
     el("div", { class: "row" },
       el("button", { class: "primary", onclick: () => copy(txt, "Regels gekopieerd ✓") }, "Regels kopiëren"),
@@ -314,6 +332,31 @@ function ledgerSection(s) {
       showAll[s.id] ? "Minder tonen" : "Alles tonen (" + s.entries.length + ")") : null);
 }
 
+// Practice ticks from the student's page: last 14 days as dots, streak, days ticked in the last 7
+function practiceRow(s) {
+  if (!progressOK) return null;
+  const p = progress[s.id];
+  const days = new Set((p && p.days) || []);
+  const iso = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const back = n => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - n); return d; };
+  let streak = 0;
+  for (let n = days.has(iso(back(0))) ? 0 : 1; days.has(iso(back(n))); n++) streak++;
+  let week = 0;
+  for (let n = 0; n < 7; n++) if (days.has(iso(back(n)))) week++;
+  const dots = [];
+  for (let n = 13; n >= 0; n--) {
+    const d = back(n);
+    dots.push(el("span", { class: "pday" + (days.has(iso(d)) ? " on" : "") + (n === 0 ? " today" : ""),
+      title: d.toLocaleDateString("nl-BE", { weekday: "short", day: "numeric", month: "short" }) + (days.has(iso(d)) ? " · geoefend" : "") }));
+  }
+  const last = [...days].sort().pop();
+  return el("div", { class: "practice" },
+    el("span", { class: "pdots", title: "Laatste 14 dagen (rechts = vandaag)" }, dots),
+    el("span", { class: "small muted" },
+      !p ? "nog niets aangevinkt"
+         : (streak ? "🔥 " + streak + " · " : "") + week + "/7 dagen" + (last ? " · laatst " + dateLabel(last, "nl") : "")));
+}
+
 function studentCard(s) {
   const hw = s.homework;
   const last = hw[0];
@@ -338,7 +381,8 @@ function studentCard(s) {
         el("h2", null, s.name || s.id, " ", ledgerOK ? balanceChip(s) : null),
         el("span", { class: "small muted", style: "font-weight:400" },
           last ? "Laatste: " + (last.date || dateLabel(last.id, s.lang)) + " · " + hw.length + " opdracht" + (hw.length === 1 ? "" : "en")
-               : "Nog geen huiswerk")),
+               : "Nog geen huiswerk"),
+        practiceRow(s)),
       el("div", { class: "row" },
         el("button", { class: "primary", onclick: () => homeworkForm(s) }, "＋ Huiswerk"),
         el("button", { onclick: () => copy(studentLink(s), "Link van " + (s.name || s.id) + " gekopieerd ✓") }, "🔗 Link"),
@@ -670,6 +714,13 @@ async function reload() {
     return Object.assign({ id: d.id }, d.data(), { homework, priv: (pv && pv.exists() && pv.data()) || {}, entries });
   }));
   students = list.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+  progress = {}; progressOK = true;
+  try {
+    const ps = await F.getDocs(F.collection(db, "progress"));
+    ps.docs.forEach(p => { progress[p.id] = p.data(); });
+  } catch (e) {
+    if (e.code === "permission-denied") progressOK = false; else console.warn("progress:", e);
+  }
   mainScreen();
 }
 
