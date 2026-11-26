@@ -81,6 +81,7 @@
   .tmsg.me { background: #e3f1e8; margin-left: auto; }
   .tmsg .ghost { padding: 0 4px; float: right; }
   .tmsg-text { white-space: pre-wrap; }
+  .thread.solved { opacity: .6; }
   .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto;
             background: var(--ink); padding: 6px 8px 0; }
   .tabbar[hidden], .frames[hidden], iframe[hidden], main[hidden] { display: none; }
@@ -208,6 +209,7 @@ function closeTab(id) {
   showTab(activeTab === id ? (tabs[i] || tabs[i - 1] || {}).id || null : activeTab);
 }
 function showTab(id) {
+  if (id == null && listStale && user) { listStale = false; reload().catch(e => console.warn(e)); }
   activeTab = id;
   app.hidden = id != null;
   frames.hidden = id == null;
@@ -219,7 +221,12 @@ function showTab(id) {
       el("button", { class: "tab-name", onclick: () => showTab(t.id) }, t.name),
       el("button", { class: "tab-x", title: "Sluiten", "aria-label": "Tab sluiten", onclick: () => closeTab(t.id) }, "×"))));
 }
-// Ctrl+W-like: Escape goes back to the list
+// A student tab sent a reply / marked something solved → refresh the list when you go back to it
+let listStale = false;
+window.addEventListener("message", e => {
+  if (e.origin === location.origin && e.data && e.data.type === "drumhw-changed") listStale = true;
+});
+// Escape goes back to the list
 document.addEventListener("keydown", e => { if (e.key === "Escape" && activeTab != null) showTab(null); });
 
 // ---------- screens ----------
@@ -273,7 +280,10 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(["from", "text", "ex", "exTitle", "at"])
           && request.resource.data.text is string && request.resource.data.text.size() <= 1000
           && (request.resource.data.from == "student" || (request.resource.data.from == "teacher" && isTeacher()));
-        allow update, delete: if isTeacher();
+        allow update: if isTeacher()
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["solved"])
+              && request.resource.data.solved == true);
+        allow delete: if isTeacher();
       }
     }
     // Boekhouding (rates, lessons, payments): only the teacher can read or write
@@ -486,11 +496,14 @@ function messagesSection(s, seen) {
   // group by exercise, newest thread first
   const threads = new Map();
   for (const m of ms) { if (!threads.has(m.ex)) threads.set(m.ex, []); threads.get(m.ex).push(m); }
-  const ordered = [...threads.values()].sort((a, b) => (a[a.length - 1].at < b[b.length - 1].at ? 1 : -1));
+  const isSolved = th => !!th[th.length - 1].solved;
+  const ordered = [...threads.values()].sort((a, b) =>
+    (isSolved(a) - isSolved(b)) || (a[a.length - 1].at < b[b.length - 1].at ? 1 : -1));
   for (const th of ordered) {
     const lastStudent = th.filter(m => m.from === "student").pop();
-    const box = el("div", { class: "thread" },
-      el("div", { class: "small muted", style: "font-weight:700" }, th[0].exTitle || "Oefening"),
+    const box = el("div", { class: "thread" + (isSolved(th) ? " solved" : "") },
+      el("div", { class: "small muted", style: "font-weight:700" }, th[0].exTitle || "Oefening",
+        isSolved(th) ? el("span", { class: "chip credit", style: "margin-left:6px" }, "✓ opgelost") : null),
       th.map(m => el("div", { class: "tmsg " + (m.from === "teacher" ? "me" : "them") },
         el("div", { class: "small muted" }, (m.from === "teacher" ? "Jij" : (s.name || s.id)) + " · " + timeLabel(m.at),
           m.from === "student" && m.at > seen ? el("span", { class: "chip owe", style: "margin-left:6px" }, "nieuw") : null,
