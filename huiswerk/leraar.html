@@ -119,10 +119,12 @@
   .ds-wrap { display: flex; flex-direction: column; height: calc(100vh - 42px); }
   .ds-wrap[hidden] { display: none; }
   .ds-wrap iframe { flex: 1; height: auto; background: #fff; }
-  .ds-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 10px; background: var(--bg);
-            border-bottom: 2px solid var(--line); }
+  .ds-bar { padding: 8px 10px; background: var(--bg); border-bottom: 2px solid var(--line); }
+  .ds-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .ds-row + .ds-row { margin-top: 6px; }
   .ds-bar input, .ds-bar select { width: auto; padding: 7px 9px; }
-  .ds-bar input:not(.ds-type):not(.ds-tempos) { flex: 1 1 200px; }
+  .ds-bar select[hidden] { display: none; }
+  .ds-title { flex: 1 1 200px; } .ds-focus { flex: 1 1 260px; }
   .ds-type { width: 120px !important; } .ds-tempos { width: 110px !important; }
   .ds-status { font-size: .85rem; color: var(--muted); }
   .ds-open { border: 2px solid var(--line); background: #fff; border-radius: 99px; padding: 4px 12px; font-weight: 700; color: var(--ink); }
@@ -284,14 +286,45 @@ function openDrumsheet(preselect) {
   showTab(tab.id);
 }
 function currentHomework(s) { return s && s.homework[0] ? s.homework[0] : null; }
+// One bar (maat) of a Drumsheet link as its own link: notes per instrument are "|bar1|bar2|…|",
+// per-bar meters in Meters (comma list), per-bar grid in Grid (comma list).
+function measureCount(url) { return Math.max(1, +((url.match(/[?&]Measures=(\d+)/) || [])[1]) || 1); }
+function splitMeasure(url, k) { // k = 1-based
+  const q = url.indexOf("?");
+  if (q < 0) return url;
+  const base = url.slice(0, q);
+  const parts = url.slice(q + 1).split("&").filter(Boolean).map(p => { const i = p.indexOf("="); return i < 0 ? [p, ""] : [p.slice(0, i), p.slice(i + 1)]; });
+  const timeSig = decodeURIComponent((parts.find(([k2]) => k2 === "TimeSig") || [, "4/4"])[1]);
+  const out = [];
+  for (const [key, val] of parts) {
+    if (key === "Measures") { out.push([key, "1"]); continue; }
+    if (key === "Meters") {
+      const m = decodeURIComponent(val).split(/[,|]/)[k - 1];
+      if (m && m !== timeSig) out.push([key, m]);
+      continue;
+    }
+    if (key === "Grid") { const g = val.split(",")[k - 1]; if (g) out.push([key, g]); continue; }
+    if (/^(H|S|K|T[1-4]|Stickings)$/.test(key)) {
+      const bars = decodeURIComponent(val).split("|");
+      out.push([key, "|" + (bars[k] || "") + "|"]);
+      continue;
+    }
+    out.push([key, val]);
+  }
+  return base + "?" + out.map(([a, b]) => a + "=" + b).join("&");
+}
+
 function drumsheetBar() {
   const student = el("select", { "aria-label": "Leerling" });
   const target = el("select", { "aria-label": "Waar toevoegen" });
-  const title = el("input", { placeholder: "Titel, bv. Rockbeat met fill", "aria-label": "Titel" });
+  const title = el("input", { placeholder: "Titel, bv. Rockbeat met fill", "aria-label": "Titel", class: "ds-title" });
   const type = el("input", { list: "ds-types", placeholder: "Type", "aria-label": "Type", class: "ds-type" });
   const tempos = el("input", { placeholder: "Tempo's", "aria-label": "Tempo-stappen (bpm)", class: "ds-tempos", title: "Tempo-stappen in bpm, bv. 60 70 80. Leeg = uit de link" });
+  const focus = el("input", { placeholder: "Let op… (optioneel, meerdere punten scheiden met ;)", "aria-label": "Let op", class: "ds-focus" });
+  const bars = el("select", { "aria-label": "Maten", class: "ds-bars", hidden: true });
   const status = el("span", { class: "ds-status" });
   const add = el("button", { class: "primary" }, "➕ Aan huiswerk toevoegen");
+  const finish = el("button", { title: "Titel, algemene notities en les/betaling van dit huiswerk" }, "📝 Afronden");
   let titleTouched = false, temposTouched = false;
   title.addEventListener("input", () => { titleTouched = !!title.value; });
   tempos.addEventListener("input", () => { temposTouched = !!tempos.value; });
@@ -301,17 +334,34 @@ function drumsheetBar() {
     student.append(el("option", { value: "" }, "Kies leerling…"), ...students.map(s => el("option", { value: s.id }, s.name || s.id)));
     student.value = students.some(s => s.id === keep) ? keep : "";
   };
+  let targetFor = null; // student the current "waar" choice belongs to
   const fillTarget = () => {
     const s = students.find(x => x.id === student.value), h = currentHomework(s);
+    const keep = targetFor === student.value ? target.value : "current";
+    targetFor = student.value;
     target.textContent = "";
     if (h) {
       const n = (h.exercises || [h]).length;
       target.append(el("option", { value: "current" }, "bij " + (h.title || h.date || h.id) + " (" + n + " oef.)"));
     }
     target.append(el("option", { value: "new" }, "als nieuw huiswerk (vandaag)"));
+    if ([...target.options].some(o => o.value === keep)) target.value = keep;
+    finish.disabled = !h;
+  };
+  const fillBars = () => {
+    const n = dsGroove ? measureCount(dsGroove.url) : 1;
+    const keep = bars.value;
+    bars.textContent = "";
+    bars.hidden = n < 2;
+    if (n < 2) return;
+    bars.append(el("option", { value: "all" }, "alle " + n + " maten samen"),
+      el("option", { value: "each" }, "elke maat apart (" + n + " oef.)"),
+      ...Array.from({ length: n }, (_, i) => el("option", { value: String(i + 1) }, "alleen maat " + (i + 1))));
+    bars.value = [...bars.options].some(o => o.value === keep) ? keep : "all";
   };
   student.addEventListener("change", fillTarget);
   const update = () => {
+    fillBars();
     if (!dsGroove) { status.textContent = "Schrijf een groove in Drumsheet hieronder…"; return; }
     const bpm = +((dsGroove.url.match(/[?&]Tempo=(\d+)/) || [])[1]) || 0;
     status.textContent = "Groove klaar ✓" + (bpm ? " · " + bpm + " bpm" : "");
@@ -319,6 +369,10 @@ function drumsheetBar() {
     const t = (dsGroove.title || "").trim();
     if (!titleTouched && t && !/drumsheet|groove scribe/i.test(t)) title.value = t;
   };
+  finish.addEventListener("click", () => {
+    const s = students.find(x => x.id === student.value), h = currentHomework(s);
+    if (s && h) homeworkForm(s, h);
+  });
   add.addEventListener("click", async () => {
     const s = students.find(x => x.id === student.value);
     if (!s) { student.focus(); toast("Kies eerst een leerling"); return; }
@@ -326,14 +380,24 @@ function drumsheetBar() {
     const en = s.lang === "en";
     const steps = lines(tempos.value.replace(/[,;]/g, " ").replace(/\s+/g, "\n")).map(Number).filter(n => n > 0);
     const max = steps.length ? Math.max(...steps) : 0;
-    const ex = {
-      title: title.value.trim() || type.value.trim() || (en ? "Exercise" : "Oefening"),
-      goal: max ? (en ? "Play it cleanly at " : "Vlot spelen op ") + max + " bpm" : (en ? "Play it cleanly" : "Vlot spelen"),
-      tempos: steps,
-      groove: [{ url: dsGroove.url }],
-      focus: []
-    };
-    if (type.value.trim()) ex.type = type.value.trim();
+    const baseTitle = title.value.trim() || type.value.trim() || (en ? "Exercise" : "Oefening");
+    const n = measureCount(dsGroove.url);
+    const pick = bars.hidden ? "all" : bars.value;
+    // which links: the whole sheet, each bar, or one bar
+    const parts = pick === "all" ? [{ url: dsGroove.url, t: baseTitle }]
+      : pick === "each" ? Array.from({ length: n }, (_, i) => ({ url: splitMeasure(dsGroove.url, i + 1), t: baseTitle + (en ? " – bar " : " – maat ") + (i + 1) }))
+      : [{ url: splitMeasure(dsGroove.url, +pick), t: title.value.trim() ? baseTitle : baseTitle + (en ? " – bar " : " – maat ") + pick }];
+    const exs = parts.map(x => {
+      const ex = {
+        title: x.t,
+        goal: max ? (en ? "Play it cleanly at " : "Vlot spelen op ") + max + " bpm" : (en ? "Play it cleanly" : "Vlot spelen"),
+        tempos: steps,
+        groove: [{ url: x.url }],
+        focus: focus.value.split(/[;\n]/).map(x2 => x2.trim()).filter(Boolean)
+      };
+      if (type.value.trim()) ex.type = type.value.trim();
+      return ex;
+    });
     add.disabled = true;
     try {
       const h = target.value === "current" ? currentHomework(s) : null;
@@ -341,33 +405,34 @@ function drumsheetBar() {
       if (h) {
         // old one-exercise homework becomes a list first (same as the homework form does)
         const old = h.exercises ? h.exercises : [(({ id, date, updated, ...rest }) => rest)(h)];
-        await F.updateDoc(F.doc(db, "students", s.id, "homework", h.id), { exercises: old.concat(ex), updated: F.serverTimestamp() });
-        where = (h.title || h.date || h.id) + " (" + (old.length + 1) + " oefeningen)";
+        await F.updateDoc(F.doc(db, "students", s.id, "homework", h.id), { exercises: old.concat(exs), updated: F.serverTimestamp() });
+        where = (h.title || h.date || h.id) + " (" + (old.length + exs.length) + " oefeningen)";
       } else {
         const d = todayISO();
-        let id = d, n = 2;
+        let id = d, k = 2;
         const taken = new Set(s.homework.map(x => x.id));
-        while (taken.has(id)) id = d + "-" + n++;
+        while (taken.has(id)) id = d + "-" + k++;
         const ttl = (en ? "Homework " : "Huiswerk ") + dateLabel(d, s.lang);
         await F.setDoc(F.doc(db, "students", s.id, "homework", id),
-          { date: dateLabel(d, s.lang), title: ttl, notes: [], exercises: [ex], updated: F.serverTimestamp() });
+          { date: dateLabel(d, s.lang), title: ttl, notes: [], exercises: exs, updated: F.serverTimestamp() });
         where = ttl;
       }
-      toast("✓ " + ex.title + " → " + (s.name || s.id) + ": " + where);
-      title.value = ""; titleTouched = false; temposTouched = false; update();
+      toast("✓ " + (exs.length > 1 ? exs.length + " oefeningen" : exs[0].title) + " → " + (s.name || s.id) + ": " + where);
+      title.value = ""; focus.value = ""; titleTouched = false; temposTouched = false; update();
       await reload();
       fillTarget(); target.value = "current"; // the next one goes to the same homework
+      finish.disabled = false;
     } catch (e) { alert("Toevoegen lukte niet: " + e.message); }
     add.disabled = false;
   });
   const box = el("div", { class: "ds-bar" },
     el("datalist", { id: "ds-types" }, TYPES.map(x => el("option", { value: x }))),
-    student, title, type, tempos, target, add, status);
+    el("div", { class: "ds-row" }, student, title, type, tempos, bars),
+    el("div", { class: "ds-row" }, focus, target, add, finish, status));
   fillStudents(); fillTarget(); update();
   return { box, update, pick: id => { fillStudents(); student.value = id; fillTarget(); },
            refresh: () => { fillStudents(); fillTarget(); } };
 }
-
 // Escape goes back to the list
 document.addEventListener("keydown", e => { if (e.key === "Escape" && activeTab != null) showTab(null); });
 
@@ -1100,6 +1165,8 @@ function studentCard(s) {
 function addStudentForm() { editStudent(null); }
 function editStudent(s) {
   const name = el("input", { value: s ? s.name : "", placeholder: "Voornaam" });
+  const always = el("textarea", { placeholder: "bv. Rechte rug\nPolsen los\nTel hardop mee" });
+  always.value = s && s.always ? [].concat(s.always).join("\n") : "";
   const lang = el("select", null,
     el("option", { value: "nl" }, "Nederlands"), el("option", { value: "en" }, "Engels"));
   lang.value = s ? s.lang || "nl" : "nl";
@@ -1112,6 +1179,7 @@ function editStudent(s) {
     el("h2", null, s ? "Leerling wijzigen" : "Nieuwe leerling"),
     el("label", null, "Naam"), name,
     el("label", null, "Taal van de pagina"), lang,
+    el("label", null, "📌 Altijd op letten ", el("span", { class: "muted" }, "(één punt per regel; staat elke week bovenaan de pagina van de leerling)")), always,
     s ? el("p", { class: "small muted" }, "Link blijft: " + studentLink(s)) : null,
     ledgerOK ? el("fieldset", null, el("legend", null, "Tarief ", el("span", { class: "muted small" }, "(alleen voor jou)")),
       el("div", { class: "grid2" },
@@ -1130,7 +1198,7 @@ function editStudent(s) {
     if (!nm || !id) { err.textContent = "Geef een naam."; return; }
     if (!s && students.some(x => x.id === id)) { err.textContent = "Er is al een leerling met link ?s=" + id + "."; return; }
     try {
-      await F.setDoc(F.doc(db, "students", id), { name: nm, lang: lang.value }, { merge: true });
+      await F.setDoc(F.doc(db, "students", id), { name: nm, lang: lang.value, always: lines(always.value) }, { merge: true });
       if (ledgerOK) await F.setDoc(F.doc(db, "private", id),
         { price: price.value.trim() === "" ? null : num(price.value), duration: +dur.value, opening: num(opening.value) }, { merge: true });
       ov.remove(); await reload();

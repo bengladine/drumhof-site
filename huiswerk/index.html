@@ -83,6 +83,7 @@
   }
   ul.focus { margin: 0; padding-left: 20px; }
   ul.focus li { margin: 4px 0; }
+  .card.always { border-left: 5px solid var(--accent); }
   .celebrate {
     background: var(--ok); color: #fff; border-radius: 12px; padding: 12px 14px;
     font-weight: 700; margin-top: 12px;
@@ -442,7 +443,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           goalsDone: (d, n) => d + " van " + n + " doelen gehaald", allDone: "🎉 Alles gehaald! Laat het zien in de les.",
           pdf: "📄 Open de noten (PDF)", goal: "Jouw doel", done: "Gelukt", doneAt: "Gelukt op",
           goalDone: "🎉 Doel gehaald! Laat het zien in de les.", listen: "Luister & speel mee",
-          tempoNow: b => "Tempo nu: " + b + " bpm — druk op ▶ in de noten", focus: "Let op",
+          tempoNow: b => "Tempo nu: " + b + " bpm — druk op ▶ in de noten", focus: "Let op", always: "📌 Altijd op letten",
           zoom: "🔍 Groter bekijken", close: "✕ Sluiten", rotate: "Tip: draai je gsm",
           ask: "💬 Vraag of opmerking voor je leraar", askPh: "Bv. de fill in maat 4 lukt nog niet…",
           send: "Versturen", cancel: "Annuleren", you: "Jij", teacher: "Leraar", isNew: "nieuw",
@@ -464,7 +465,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           goalsDone: (d, n) => d + " of " + n + " goals reached", allDone: "🎉 All done! Show it in your next lesson.",
           pdf: "📄 Open the sheet music (PDF)", goal: "Your goal", done: "Done", doneAt: "Done at",
           goalDone: "🎉 Goal reached! Show it in your next lesson.", listen: "Listen & play along",
-          tempoNow: b => "Tempo now: " + b + " bpm — press ▶ in the notation", focus: "Focus on",
+          tempoNow: b => "Tempo now: " + b + " bpm — press ▶ in the notation", focus: "Focus on", always: "📌 Always keep in mind",
           zoom: "🔍 View larger", close: "✕ Close", rotate: "Tip: turn your phone sideways",
           ask: "💬 Question or note for your teacher", askPh: "E.g. the fill in bar 4 doesn't work yet…",
           send: "Send", cancel: "Cancel", you: "You", teacher: "Teacher", isNew: "new",
@@ -499,6 +500,11 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     app.append(el("h1", null, T("hi") + " " + (data.name || "") + " 👋"));
     app.append(el("p", { class: "sub" }, T("intro")));
     app.append(streakCard());
+    // fixed points the teacher wants every week ("📌 Altijd op letten", set on the teacher page)
+    const always = [].concat(data.always || []).filter(Boolean);
+    if (always.length) app.append(el("section", { class: "card always" },
+      el("p", { class: "label" }, T("always")),
+      el("ul", { class: "focus" }, always.map(x => el("li", null, x)))));
 
     const list = data.assignments || [];
     if (!list.length) { app.append(el("p", { class: "sub" }, T("none"))); return; }
