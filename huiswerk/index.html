@@ -142,6 +142,8 @@
   .rem-select { font: inherit; font-size: .95rem; padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
   .rem-hint { font-size: .85rem; color: var(--muted); margin: 10px 0 0; }
   .rem-row .rem-hint { margin: 0; flex-basis: 100%; }
+  .install-btn { font: inherit; font-weight: 700; font-size: .95rem; background: var(--ink); color: #fff; border: 0;
+                 border-radius: 10px; padding: 9px 14px; cursor: pointer; }
   .rem-at { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
   .rem-time { font: inherit; font-size: .95rem; padding: 7px 8px; border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
   .msg-old { margin-bottom: 8px; }
@@ -296,30 +298,44 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     if (v === "-1") rem = { hour: -1, minute: 0 };
     else if (/^\d{1,2}(:\d{2})?$/.test(v)) { const [h, m] = v.split(":"); rem = { hour: +h, minute: +(m || 0) }; }
   } catch (e) {}
+  // "📲 Installeer de app": Chrome (Android/pc) offers this when the page can be installed
+  let installPrompt = null;
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installPrompt = e; if (typeof render === "function" && data) render(); });
+  window.addEventListener("appinstalled", () => { installPrompt = null; if (data) render(); });
+  function installButton() {
+    if (!installPrompt || Push.isStandalone) return null;
+    const b = el("button", { class: "install-btn" }, T("install"));
+    b.addEventListener("click", async () => {
+      const p = installPrompt; installPrompt = null;
+      try { await p.prompt(); await p.userChoice; } catch (e) {}
+      render();
+    });
+    return b;
+  }
   const hhmm = r => String(r.hour).padStart(2, "0") + ":" + String(r.minute || 0).padStart(2, "0");
-  // TEST PHASE: only these student pages show the notification option. Set to null to show it to everyone.
-  const PUSH_ONLY_FOR = ["ben"];
+  // Set to a list of codes (e.g. ["ben"]) to show the notification option only on those pages while testing.
+  const PUSH_ONLY_FOR = null;
   function reminderRow() {
     if (VIEW) return null;
     if (PUSH_ONLY_FOR && !PUSH_ONLY_FOR.includes(code)) return null;
-    if (!Push.pushSupported()) return Push.needsHomeScreen() ? el("p", { class: "rem-hint" }, T("remHome")) : null;
+    if (!Push.pushSupported()) return Push.needsHomeScreen() ? el("p", { class: "rem-hint" }, T("remHome")) : installButton();
     const mode = el("select", { class: "rem-select", "aria-label": T("remOff") },
       el("option", { value: "off" }, T("remOff")),
       el("option", { value: "replies" }, T("remReplies")),
       el("option", { value: "both" }, T("remBoth")));
     mode.value = !rem ? "off" : rem.hour < 0 ? "replies" : "both";
     const time = el("input", { type: "time", class: "rem-time", step: "900", "aria-label": T("remTime"),
-      value: rem && rem.hour >= 0 ? hhmm(rem) : "19:00" });
+      value: rem && rem.hour >= 0 ? hhmm(rem) : "17:00" });
     const apply = () => {
       if (mode.value === "off") return setReminder(null, [mode, time]);
       if (mode.value === "replies") return setReminder({ hour: -1, minute: 0 }, [mode, time]);
-      const [h, m] = (time.value || "19:00").split(":").map(Number);
+      const [h, m] = (time.value || "17:00").split(":").map(Number);
       setReminder({ hour: h, minute: m }, [mode, time]);
     };
     mode.addEventListener("change", apply);
     time.addEventListener("change", () => { if (mode.value === "both" && time.value) apply(); });
     const both = mode.value === "both";
-    return el("div", { class: "rem-row" }, mode,
+    return el("div", { class: "rem-row" }, installButton(), mode,
       both ? el("label", { class: "rem-at" }, T("remAtLabel"), " ", time) : null,
       both ? el("span", { class: "rem-hint" }, T("remHint")) : null);
   }
@@ -437,7 +453,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           remTime: "Uur van je herinnering", remAtLabel: "om",
           remOnReplies: "🔔 Je krijgt een melding als je leraar antwoordt", remOnAt: t => "🔔 Herinnering om " + t + " + antwoorden van je leraar",
           remGone: "Meldingen uitgezet", remDenied: "Meldingen staan uit voor deze site. Zet ze aan in je instellingen.",
-          remFail: "Lukte niet. Probeer later opnieuw.", remHome: "📲 Herinneringen op je iPhone? Zet deze pagina eerst op je beginscherm: Deel-knop → \"Zet op beginscherm\", en open hem van daaruit.",
+          install: "📲 Installeer de app", remFail: "Lukte niet. Probeer later opnieuw.", remHome: "📲 Herinneringen op je iPhone? Zet deze pagina eerst op je beginscherm: Deel-knop → \"Zet op beginscherm\", en open hem van daaruit.",
           remHint: "Alleen op dagen dat je nog niet geoefend hebt.",
           recGone: "🎙️ Opname verwijderd na 3 maanden", recPlay: "▶ Opname", recNoMic: "Geen toegang tot je microfoon. Sta het toe in je browser en probeer opnieuw.",
           recTip: "Leg je gsm een paar meter van je drums. Max 1 minuut.",
@@ -459,7 +475,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           remTime: "Time of your reminder", remAtLabel: "at",
           remOnReplies: "🔔 You'll be notified when your teacher replies", remOnAt: t => "🔔 Reminder at " + t + " + replies from your teacher",
           remGone: "Notifications turned off", remDenied: "Notifications are blocked for this site. Turn them on in your settings.",
-          remFail: "Didn't work. Please try again later.", remHome: "📲 Reminders on your iPhone? First add this page to your home screen: Share button → \"Add to Home Screen\", and open it from there.",
+          install: "📲 Install the app", remFail: "Didn't work. Please try again later.", remHome: "📲 Reminders on your iPhone? First add this page to your home screen: Share button → \"Add to Home Screen\", and open it from there.",
           remHint: "Only on days you haven't practised yet.",
           recGone: "🎙️ Recording removed after 3 months", recPlay: "▶ Recording", recNoMic: "No access to your microphone. Allow it in your browser and try again.",
           recTip: "Put your phone a few metres from your drums. Max 1 minute.",
