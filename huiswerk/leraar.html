@@ -123,7 +123,13 @@
   .ds-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .ds-row + .ds-row { margin-top: 6px; }
   .ds-bar input, .ds-bar select { width: auto; padding: 7px 9px; }
-  .ds-bar select[hidden] { display: none; }
+  .ds-bar select[hidden], .ds-checks[hidden] { display: none; }
+  .ds-checks { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin-top: 6px; }
+  .ds-checks-label { font-weight: 700; font-size: .9rem; }
+  .ds-check { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: 600; background: #fff;
+              border: 2px solid var(--line); border-radius: 8px; padding: 3px 8px; cursor: pointer; }
+  .ds-check input { width: auto; margin: 0; }
+  .ds-check.used { color: var(--muted); background: var(--bg); }
   .ds-title { flex: 1 1 200px; } .ds-focus { flex: 1 1 260px; }
   .ds-type { width: 120px !important; } .ds-tempos { width: 110px !important; }
   .ds-status { font-size: .85rem; color: var(--muted); }
@@ -289,7 +295,7 @@ function currentHomework(s) { return s && s.homework[0] ? s.homework[0] : null; 
 // One bar (maat) of a Drumsheet link as its own link: notes per instrument are "|bar1|bar2|…|",
 // per-bar meters in Meters (comma list), per-bar grid in Grid (comma list).
 function measureCount(url) { return Math.max(1, +((url.match(/[?&]Measures=(\d+)/) || [])[1]) || 1); }
-function splitMeasure(url, k) { // k = 1-based
+function pickMeasures(url, ks) { // ks = 1-based bar numbers, in order
   const q = url.indexOf("?");
   if (q < 0) return url;
   const base = url.slice(0, q);
@@ -297,22 +303,29 @@ function splitMeasure(url, k) { // k = 1-based
   const timeSig = decodeURIComponent((parts.find(([k2]) => k2 === "TimeSig") || [, "4/4"])[1]);
   const out = [];
   for (const [key, val] of parts) {
-    if (key === "Measures") { out.push([key, "1"]); continue; }
+    if (key === "Measures") { out.push([key, String(ks.length)]); continue; }
     if (key === "Meters") {
-      const m = decodeURIComponent(val).split(/[,|]/)[k - 1];
-      if (m && m !== timeSig) out.push([key, m]);
+      const all = decodeURIComponent(val).split(/[,|]/);
+      const m = ks.map(k => all[k - 1] || timeSig);
+      if (m.some(x => x !== timeSig)) out.push([key, m.join(",")]);
       continue;
     }
-    if (key === "Grid") { const g = val.split(",")[k - 1]; if (g) out.push([key, g]); continue; }
+    if (key === "Grid") { const all = val.split(","); if (ks.every(k => all[k - 1])) out.push([key, ks.map(k => all[k - 1]).join(",")]); continue; }
     if (/^(H|S|K|T[1-4]|Stickings)$/.test(key)) {
       const bars = decodeURIComponent(val).split("|");
-      out.push([key, "|" + (bars[k] || "") + "|"]);
+      out.push([key, "|" + ks.map(k => bars[k] || "").join("|") + "|"]);
       continue;
     }
     out.push([key, val]);
   }
   return base + "?" + out.map(([a, b]) => a + "=" + b).join("&");
 }
+const splitMeasure = (url, k) => pickMeasures(url, [k]);
+const barList = ks => { // [1,2,3,5] → "1–3, 5"
+  const r = [];
+  ks.forEach(k => { const last = r[r.length - 1]; if (last && k === last[1] + 1) last[1] = k; else r.push([k, k]); });
+  return r.map(([a, b]) => a === b ? String(a) : a + "–" + b).join(", ");
+};
 
 function drumsheetBar() {
   const student = el("select", { "aria-label": "Leerling" });
@@ -322,6 +335,9 @@ function drumsheetBar() {
   const tempos = el("input", { placeholder: "Tempo's", "aria-label": "Tempo-stappen (bpm)", class: "ds-tempos", title: "Tempo-stappen in bpm, bv. 60 70 80. Leeg = uit de link" });
   const focus = el("input", { placeholder: "Let op… (optioneel, meerdere punten scheiden met ;)", "aria-label": "Let op", class: "ds-focus" });
   const bars = el("select", { "aria-label": "Maten", class: "ds-bars", hidden: true });
+  const checks = el("div", { class: "ds-checks", hidden: true }); // "kies maten…": one checkbox per bar
+  const usedBars = new Set(); // bars already added from this sheet (shown greyed, ✓)
+  let sheetKey = "";          // resets usedBars when a different sheet is loaded
   const status = el("span", { class: "ds-status" });
   const add = el("button", { class: "primary" }, "➕ Aan huiswerk toevoegen");
   const finish = el("button", { title: "Titel, algemene notities en les/betaling van dit huiswerk" }, "📝 Afronden");
@@ -356,11 +372,33 @@ function drumsheetBar() {
     if (n < 2) return;
     bars.append(el("option", { value: "all" }, "alle " + n + " maten samen"),
       el("option", { value: "each" }, "elke maat apart (" + n + " oef.)"),
-      ...Array.from({ length: n }, (_, i) => el("option", { value: String(i + 1) }, "alleen maat " + (i + 1))));
+      ...Array.from({ length: n }, (_, i) => el("option", { value: String(i + 1) }, "alleen maat " + (i + 1))),
+      el("option", { value: "pick" }, "kies maten…"));
     bars.value = [...bars.options].some(o => o.value === keep) ? keep : "all";
+    fillChecks();
   };
+  const fillChecks = () => {
+    const n = dsGroove ? measureCount(dsGroove.url) : 1;
+    checks.hidden = bars.hidden || bars.value !== "pick";
+    if (checks.hidden) return;
+    const was = new Set(checkedBars());
+    checks.textContent = "";
+    checks.append(el("span", { class: "ds-checks-label" }, "Maten:"));
+    for (let k = 1; k <= n; k++) {
+      const box = el("input", { type: "checkbox", value: String(k) });
+      if (was.has(k)) box.checked = true;
+      checks.append(el("label", { class: "ds-check" + (usedBars.has(k) ? " used" : ""), title: usedBars.has(k) ? "Al toegevoegd" : "" },
+        box, " " + k + (usedBars.has(k) ? " ✓" : "")));
+    }
+  };
+  const checkedBars = () => [...checks.querySelectorAll("input:checked")].map(b => +b.value);
+  bars.addEventListener("change", fillChecks);
   student.addEventListener("change", fillTarget);
   const update = () => {
+    if (dsGroove) {
+      const key = measureCount(dsGroove.url) + ":" + (dsGroove.url.match(/[?&]H=\|([^|]*)/) || [])[1];
+      if (key !== sheetKey) { sheetKey = key; usedBars.clear(); }
+    }
     fillBars();
     if (!dsGroove) { status.textContent = "Schrijf een groove in Drumsheet hieronder…"; return; }
     const bpm = +((dsGroove.url.match(/[?&]Tempo=(\d+)/) || [])[1]) || 0;
@@ -383,8 +421,12 @@ function drumsheetBar() {
     const baseTitle = title.value.trim() || type.value.trim() || (en ? "Exercise" : "Oefening");
     const n = measureCount(dsGroove.url);
     const pick = bars.hidden ? "all" : bars.value;
+    const picked = pick === "pick" ? checkedBars() : [];
+    if (pick === "pick" && !picked.length) { toast("Vink eerst de maten aan die samen één oefening vormen"); return; }
     // which links: the whole sheet, each bar, or one bar
     const parts = pick === "all" ? [{ url: dsGroove.url, t: baseTitle }]
+      : pick === "pick" ? [{ url: pickMeasures(dsGroove.url, picked),
+          t: title.value.trim() ? baseTitle : baseTitle + (en ? " – bar " : " – maat ") + barList(picked) }]
       : pick === "each" ? Array.from({ length: n }, (_, i) => ({ url: splitMeasure(dsGroove.url, i + 1), t: baseTitle + (en ? " – bar " : " – maat ") + (i + 1) }))
       : [{ url: splitMeasure(dsGroove.url, +pick), t: title.value.trim() ? baseTitle : baseTitle + (en ? " – bar " : " – maat ") + pick }];
     const exs = parts.map(x => {
@@ -418,6 +460,10 @@ function drumsheetBar() {
         where = ttl;
       }
       toast("✓ " + (exs.length > 1 ? exs.length + " oefeningen" : exs[0].title) + " → " + (s.name || s.id) + ": " + where);
+      if (pick === "pick") picked.forEach(k => usedBars.add(k));
+      else if (pick === "each" || pick === "all") for (let k = 1; k <= n; k++) usedBars.add(k);
+      else usedBars.add(+pick);
+      checks.querySelectorAll("input").forEach(b => { b.checked = false; });
       title.value = ""; focus.value = ""; titleTouched = false; temposTouched = false; update();
       await reload();
       fillTarget(); target.value = "current"; // the next one goes to the same homework
@@ -428,6 +474,7 @@ function drumsheetBar() {
   const box = el("div", { class: "ds-bar" },
     el("datalist", { id: "ds-types" }, TYPES.map(x => el("option", { value: x }))),
     el("div", { class: "ds-row" }, student, title, type, tempos, bars),
+    checks,
     el("div", { class: "ds-row" }, focus, target, add, finish, status));
   fillStudents(); fillTarget(); update();
   return { box, update, pick: id => { fillStudents(); student.value = id; fillTarget(); },
