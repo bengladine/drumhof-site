@@ -289,8 +289,11 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   const REM_KEY = "drumhw-remind:" + code;
   let remHour = null; // null = off
   try { const v = localStorage.getItem(REM_KEY); remHour = v === null || v === "" ? null : +v; } catch (e) {}
+  // TEST PHASE: only these student pages show the reminder option. Set to null to show it to everyone.
+  const PUSH_ONLY_FOR = ["ben"];
   function reminderRow() {
     if (VIEW) return null;
+    if (PUSH_ONLY_FOR && !PUSH_ONLY_FOR.includes(code)) return null;
     if (!Push.pushSupported()) return Push.needsHomeScreen() ? el("p", { class: "rem-hint" }, T("remHome")) : null;
     const sel = el("select", { class: "rem-select", "aria-label": T("remOff") },
       el("option", { value: "" }, T("remOff")),
