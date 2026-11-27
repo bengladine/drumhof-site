@@ -95,6 +95,7 @@
   .inbox-btn { position: relative; border: 2px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 10px;
                line-height: 0; color: var(--ink); display: inline-flex; align-items: center; }
   .inbox-btn.has { color: #d92d20; }
+  .inbox-btn.bell-on { border-color: var(--ok); }
   .inbox-btn.has { border-color: #d92d20; }
   .inbox-count { position: absolute; top: -8px; right: -8px; background: #d92d20; color: #fff; border-radius: 99px;
                  font-size: .72rem; font-weight: 800; min-width: 20px; height: 20px; line-height: 20px; padding: 0 5px; text-align: center; }
@@ -122,6 +123,7 @@
 
 <script type="module">
 import { firebaseConfig } from "./firebase-config.js";
+import * as Push from "./push.js";
 
 const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
 const SITE = location.origin + location.pathname.replace(/[^/]*$/, ""); // …/huiswerk/
@@ -408,6 +410,36 @@ function inboxButton() {
   }
   return wrap;
 }
+// 🔔 Notifications on this device when a student sends a message or recording
+// (teacherDevices/<id> {endpoint, keys, updated}; sent by scripts/push/send.mjs every ~15 min)
+let pushOn = false;
+try { pushOn = localStorage.getItem("leraar-push") === "1"; } catch (e) {}
+function bellButton() {
+  if (!Push.pushSupported()) return null;
+  return el("button", { class: "inbox-btn" + (pushOn ? " bell-on" : ""),
+    title: pushOn ? "Meldingen staan aan op dit toestel (klik om uit te zetten)" : "Meldingen aanzetten op dit toestel",
+    onclick: toggleBell }, pushOn ? "🔔" : "🔕");
+}
+async function toggleBell() {
+  try {
+    if (pushOn) {
+      const sub = await Push.unsubscribe();
+      if (sub) await F.deleteDoc(F.doc(db, "teacherDevices", await Push.deviceId(sub)));
+      pushOn = false; toast("Meldingen uit op dit toestel");
+    } else {
+      const sub = await Push.subscribe();
+      await F.setDoc(F.doc(db, "teacherDevices", await Push.deviceId(sub)),
+        Object.assign(Push.subData(sub), { updated: new Date().toISOString() }));
+      pushOn = true; toast("🔔 Meldingen aan: je krijgt een melding bij nieuwe berichten");
+    }
+    try { localStorage.setItem("leraar-push", pushOn ? "1" : "0"); } catch (e) {}
+  } catch (e) {
+    alert(e.message === "denied" ? "Meldingen zijn geblokkeerd voor drumhof.com. Zet ze aan in de instellingen van je browser."
+      : e.code === "permission-denied" ? "Publiceer eerst de nieuwe database-regels (zie PUSH-SETUP.md)." : "Lukte niet: " + e.message);
+  }
+  mainScreen();
+}
+
 function chatIcon() {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
@@ -547,6 +579,15 @@ service cloud.firestore {
               && request.resource.data.solved == true);
         allow delete: if isTeacher();
       }
+      // Push notifications: one doc per phone/browser (hour = daily reminder, -1 = only replies)
+      match /devices/{id} {
+        allow create, update: if exists(/databases/$(database)/documents/students/$(student))
+          && request.resource.data.keys().hasOnly(["endpoint", "keys", "hour", "tz", "lang", "updated"])
+          && request.resource.data.endpoint is string && request.resource.data.endpoint.size() < 1000
+          && request.resource.data.hour is int && request.resource.data.hour >= -1 && request.resource.data.hour <= 23;
+        allow delete: if true;
+        allow get, list: if isTeacher();
+      }
       // Audio recordings (base64, max ~1 minute), linked from a message
       match /clips/{id} {
         allow get: if true;
@@ -556,6 +597,10 @@ service cloud.firestore {
           && request.resource.data.data is string && request.resource.data.data.size() <= 950000
           && (request.resource.data.from == "student" || (request.resource.data.from == "teacher" && isTeacher()));
       }
+    }
+    // Your own devices for notifications about new messages
+    match /teacherDevices/{id} {
+      allow read, write: if isTeacher();
     }
     // Boekhouding (rates, lessons, payments): only the teacher can read or write
     match /private/{document=**} {
@@ -584,7 +629,7 @@ function rulesScreen() {
 function mainScreen() {
   const head = el("header", null,
     el("h1", null, "Huiswerk"),
-    el("div", { class: "row small muted" }, inboxButton(), user.email,
+    el("div", { class: "row small muted" }, bellButton(), inboxButton(), user.email,
       el("button", { class: "ghost", onclick: () => A.signOut(auth) }, "Uitloggen")));
 
   const list = el("div");
@@ -1100,7 +1145,8 @@ async function removeStudent(s, ov) {
   try {
     const subs = [F.getDocs(F.collection(db, "students", s.id, "homework"))];
     if (msgOK) subs.push(F.getDocs(F.collection(db, "progress", s.id, "messages")),
-      F.getDocs(F.collection(db, "progress", s.id, "clips")).catch(() => ({ docs: [] })));
+      F.getDocs(F.collection(db, "progress", s.id, "clips")).catch(() => ({ docs: [] })),
+      F.getDocs(F.collection(db, "progress", s.id, "devices")).catch(() => ({ docs: [] })));
     if (ledgerOK) subs.push(F.getDocs(F.collection(db, "private", s.id, "lessen")));
     const snaps = await Promise.all(subs);
     await Promise.all(snaps.flatMap(sn => sn.docs.map(d => F.deleteDoc(d.ref))));

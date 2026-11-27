@@ -1,0 +1,38 @@
+# Homework push notifications (practice reminders + message alerts), see huiswerk/PUSH-SETUP.md.
+# GitHub runs scheduled jobs roughly every 15 minutes (sometimes a bit later at busy times).
+name: Push notifications
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: push-notifications
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/push
+            huiswerk/push-config.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        working-directory: scripts/push
+        run: npm install --no-audit --no-fund --omit=dev
+      - name: Send
+        working-directory: scripts/push
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+        run: node send.mjs

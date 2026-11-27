@@ -1,0 +1,10 @@
+{
+  "name": "drumhof-push",
+  "private": true,
+  "type": "module",
+  "description": "Sends homework push notifications (practice reminders, message alerts). Run by .github/workflows/push.yml.",
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "web-push": "^3.6.7"
+  }
+}

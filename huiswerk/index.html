@@ -138,6 +138,10 @@
   .muted-tip { color: var(--muted); }
   .clip { margin-top: 6px; }
   .play-clip { font: inherit; font-weight: 700; border: 0; border-radius: 99px; padding: 6px 14px; background: var(--ink); color: #fff; cursor: pointer; }
+  .rem-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .rem-select { font: inherit; font-size: .95rem; padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
+  .rem-hint { font-size: .85rem; color: var(--muted); margin: 10px 0 0; }
+  .rem-row .rem-hint { margin: 0; }
   .msg-old { margin-bottom: 8px; }
   .msg-old summary { cursor: pointer; color: var(--ok); font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
   .solve-btn { font: inherit; font-weight: 700; background: #e3f1e8; color: #1f6e40; border: 0; border-radius: 10px; padding: 8px 14px; cursor: pointer; margin-bottom: 8px; }
@@ -154,6 +158,7 @@
 
 <script type="module">
 import { firebaseConfig } from "./firebase-config.js";
+import * as Push from "./push.js";
 
 // Old home of the homework (GitHub Pages): fallback data for students not in the database yet.
 const OLD = "https://bengladine.github.io/drumhomework/";
@@ -278,6 +283,47 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     save(state); render();
   }
 
+  // ---------- practice reminder (push notification) ----------
+  // Stored per device in progress/<code>/devices/<id> {endpoint, keys, hour, tz, lang, updated};
+  // hour -1 = only replies from the teacher. Sent by scripts/push/send.mjs, only if today isn't ticked yet.
+  const REM_KEY = "drumhw-remind:" + code;
+  let remHour = null; // null = off
+  try { const v = localStorage.getItem(REM_KEY); remHour = v === null || v === "" ? null : +v; } catch (e) {}
+  function reminderRow() {
+    if (VIEW) return null;
+    if (!Push.pushSupported()) return Push.needsHomeScreen() ? el("p", { class: "rem-hint" }, T("remHome")) : null;
+    const sel = el("select", { class: "rem-select", "aria-label": T("remOff") },
+      el("option", { value: "" }, T("remOff")),
+      el("option", { value: "-1" }, T("remReplies")),
+      [17, 18, 19, 20, 21].map(h => el("option", { value: String(h) }, T("remAt")(h))));
+    sel.value = remHour === null ? "" : String(remHour);
+    sel.addEventListener("change", () => setReminder(sel.value === "" ? null : +sel.value, sel));
+    return el("div", { class: "rem-row" }, sel, remHour !== null && remHour >= 0 ? el("span", { class: "rem-hint" }, T("remHint")) : null);
+  }
+  async function setReminder(hour, sel) {
+    sel.disabled = true;
+    try {
+      const f = await getDb(); if (!f) throw new Error("offline");
+      if (hour === null) {
+        const sub = await Push.unsubscribe();
+        if (sub) await f.L.deleteDoc(f.L.doc(f.db, "progress", code, "devices", await Push.deviceId(sub)));
+        toastMsg(T("remGone"));
+      } else {
+        const sub = await Push.subscribe();
+        await f.L.setDoc(f.L.doc(f.db, "progress", code, "devices", await Push.deviceId(sub)),
+          Object.assign(Push.subData(sub), { hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Brussels",
+            lang: (data && data.lang) || "nl", updated: new Date().toISOString() }));
+        toastMsg(T("remOn"));
+      }
+      remHour = hour;
+      try { localStorage.setItem(REM_KEY, hour === null ? "" : String(hour)); } catch (e) {}
+    } catch (e) {
+      console.warn("reminder:", e);
+      toastMsg(e.message === "denied" ? T("remDenied") : T("remFail"));
+    }
+    render();
+  }
+
   // ---------- Groove Scribe ----------
   // Turn a normal Groove Scribe link into the compact embed at a given tempo.
   function grooveEmbed(url, bpm) {
@@ -363,6 +409,10 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           sent: "Verstuurd ✓ Je leraar ziet het.", sendFail: "Versturen lukte niet. Probeer later opnieuw.",
           replied: "💬 Je leraar heeft geantwoord — kijk bij de oefening.",
           rec: "🎙️ Opname sturen", recNow: "Opnemen…", recStop: "■ Stop", recAgain: "Opnieuw",
+          remOff: "🔔 Herinnering: uit", remReplies: "🔔 Alleen als je leraar antwoordt", remAt: h => "🔔 Herinnering om " + h + ":00",
+          remOn: "🔔 Herinnering staat aan", remGone: "Herinnering uitgezet", remDenied: "Meldingen staan uit voor deze site. Zet ze aan in je instellingen.",
+          remFail: "Lukte niet. Probeer later opnieuw.", remHome: "📲 Herinneringen op je iPhone? Zet deze pagina eerst op je beginscherm: Deel-knop → \"Zet op beginscherm\", en open hem van daaruit.",
+          remHint: "Alleen op dagen dat je nog niet geoefend hebt.",
           recGone: "🎙️ Opname verwijderd na 3 maanden", recPlay: "▶ Opname", recNoMic: "Geen toegang tot je microfoon. Sta het toe in je browser en probeer opnieuw.",
           recTip: "Leg je gsm een paar meter van je drums. Max 1 minuut.",
           solved: "✓ Opgelost", solvedOld: n => "✓ Opgelost (" + n + " bericht" + (n === 1 ? "" : "en") + ")" },
@@ -379,6 +429,10 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           sent: "Sent ✓ Your teacher will see it.", sendFail: "Couldn't send. Please try again later.",
           replied: "💬 Your teacher replied — see the exercise.",
           rec: "🎙️ Send a recording", recNow: "Recording…", recStop: "■ Stop", recAgain: "Again",
+          remOff: "🔔 Reminder: off", remReplies: "🔔 Only when your teacher replies", remAt: h => "🔔 Reminder at " + h + ":00",
+          remOn: "🔔 Reminder is on", remGone: "Reminder turned off", remDenied: "Notifications are blocked for this site. Turn them on in your settings.",
+          remFail: "Didn't work. Please try again later.", remHome: "📲 Reminders on your iPhone? First add this page to your home screen: Share button → \"Add to Home Screen\", and open it from there.",
+          remHint: "Only on days you haven't practised yet.",
           recGone: "🎙️ Recording removed after 3 months", recPlay: "▶ Recording", recNoMic: "No access to your microphone. Allow it in your browser and try again.",
           recTip: "Put your phone a few metres from your drums. Max 1 minute.",
           solved: "✓ Solved", solvedOld: n => "✓ Solved (" + n + " message" + (n === 1 ? "" : "s") + ")" }
@@ -439,7 +493,8 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       el("button", {
         class: "big-btn" + (doneToday ? " on" : ""),
         onclick: () => toggleDay(todayKey)
-      }, doneToday ? T("doneToday") : T("practiceToday")));
+      }, doneToday ? T("doneToday") : T("practiceToday")),
+      reminderRow());
   }
 
   // A week's homework is either one exercise (old format) or a list in "exercises".

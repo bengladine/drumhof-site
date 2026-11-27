@@ -4,3 +4,6 @@
 node_modules
 dist
 .cache
+
+# local only: VAPID private key until it is in GitHub secrets
+.push-secrets.txt
