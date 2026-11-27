@@ -95,7 +95,8 @@
   .inbox-btn { position: relative; border: 2px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 10px;
                line-height: 0; color: var(--ink); display: inline-flex; align-items: center; }
   .inbox-btn.has { color: #d92d20; }
-  .inbox-btn.bell-on { border-color: var(--ok); }
+  .inbox-btn.bell-on { border-color: var(--ok); color: var(--ok); }
+  .inbox-btn:not(.bell-on):not(.has) { color: var(--muted); }
   .inbox-btn.has { border-color: #d92d20; }
   .inbox-count { position: absolute; top: -8px; right: -8px; background: #d92d20; color: #fff; border-radius: 99px;
                  font-size: .72rem; font-weight: 800; min-width: 20px; height: 20px; line-height: 20px; padding: 0 5px; text-align: center; }
@@ -418,7 +419,7 @@ function bellButton() {
   if (!Push.pushSupported()) return null;
   return el("button", { class: "inbox-btn" + (pushOn ? " bell-on" : ""),
     title: pushOn ? "Meldingen staan aan op dit toestel (klik om uit te zetten)" : "Meldingen aanzetten op dit toestel",
-    onclick: toggleBell }, pushOn ? "🔔" : "🔕");
+    onclick: toggleBell }, bellIcon(pushOn));
 }
 async function toggleBell() {
   try {
@@ -440,6 +441,26 @@ async function toggleBell() {
   mainScreen();
 }
 
+function bellIcon(on) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("width", "22"); svg.setAttribute("height", "22");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("fill", "currentColor");
+  path.setAttribute("d", "M12 2a1.5 1.5 0 0 1 1.5 1.5v.6A6.5 6.5 0 0 1 18.5 10.5v4.2l1.8 2.4a.8.8 0 0 1-.6 1.3H4.3a.8.8 0 0 1-.6-1.3l1.8-2.4v-4.2A6.5 6.5 0 0 1 10.5 4.1v-.6A1.5 1.5 0 0 1 12 2zm-2.5 17.5h5a2.5 2.5 0 0 1-5 0z");
+  svg.append(path);
+  if (!on) {
+    const slash = document.createElementNS(ns, "path");
+    slash.setAttribute("d", "M3 3l18 18");
+    slash.setAttribute("stroke", "currentColor"); slash.setAttribute("stroke-width", "2.2"); slash.setAttribute("stroke-linecap", "round");
+    const gap = document.createElementNS(ns, "path");
+    gap.setAttribute("d", "M3 3l18 18");
+    gap.setAttribute("stroke", "#fff"); gap.setAttribute("stroke-width", "5"); gap.setAttribute("stroke-linecap", "round");
+    svg.append(gap, slash);
+  }
+  return svg;
+}
 function chatIcon() {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
@@ -1332,6 +1353,28 @@ async function signIn() {
     signInScreen("Inloggen mislukt: " + e.message);
   }
 }
+
+// ---------- staying up to date ----------
+// The list refreshes by itself: when a notification arrives (the service worker tells this page),
+// when you come back to the window, and every 2 minutes while it's visible.
+// Not while you're typing in the list (a reply box), so nothing you type gets lost.
+let refreshing = false, lastRefresh = Date.now();
+async function autoRefresh(force) {
+  if (!user || refreshing || document.visibilityState !== "visible") return;
+  if (!force && Date.now() - lastRefresh < 20000) return;
+  const a = document.activeElement;
+  if (a && app.contains(a) && /^(TEXTAREA|INPUT|SELECT)$/.test(a.tagName)) return;
+  if (document.querySelector(".overlay")) return; // a form is open
+  refreshing = true;
+  try { await reload(); lastRefresh = Date.now(); } catch (e) { console.warn("refresh:", e); }
+  refreshing = false;
+}
+document.addEventListener("visibilitychange", () => autoRefresh(false));
+window.addEventListener("focus", () => autoRefresh(false));
+setInterval(() => autoRefresh(true), 120000);
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", e => {
+  if (e.data && e.data.type === "drumhw-push") autoRefresh(true);
+});
 
 // ---------- boot ----------
 (async function () {
