@@ -91,6 +91,17 @@
           background: #fff; padding: 4px 6px; margin-bottom: 4px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.06);
           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .wles.past { opacity: .55; }
+  .inbox { position: relative; }
+  .inbox-btn { position: relative; border: 2px solid var(--line); background: #fff; border-radius: 99px; padding: 3px 10px;
+               line-height: 0; color: var(--ink); display: inline-flex; align-items: center; }
+  .inbox-btn.has { color: #d92d20; }
+  .inbox-btn.has { border-color: #d92d20; }
+  .inbox-count { position: absolute; top: -8px; right: -8px; background: #d92d20; color: #fff; border-radius: 99px;
+                 font-size: .72rem; font-weight: 800; min-width: 20px; height: 20px; line-height: 20px; padding: 0 5px; text-align: center; }
+  .inbox-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 8; background: #fff; border-radius: 12px; min-width: 260px;
+               box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 6px; color: var(--ink); }
+  .inbox-item { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; font-weight: 400; padding: 8px; border-radius: 8px; }
+  .inbox-item:hover { background: var(--bg); }
   .tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 4px; overflow-x: auto;
             background: var(--ink); padding: 6px 8px 0; }
   .tabbar[hidden], .frames[hidden], iframe[hidden], main[hidden] { display: none; }
@@ -341,8 +352,8 @@ function calendarCard() {
       el("button", { class: "primary", onclick: connectCalendar }, "Agenda verbinden")),
       el("p", { class: "small muted", style: "margin:6px 0 0" },
         "Toont je lessen van deze week en de volgende les bij elke leerling, uit je Google Agenda. " +
-        "Google vraagt dit ongeveer elk uur opnieuw te bevestigen."),
-      calErr ? el("p", { class: "error small" }, calErr) : null);
+        "Google vraagt dit ongeveer elk uur opnieuw te bevestigen."));
+    if (calErr) card.append(el("p", { class: "error small" }, calErr));
     return card;
   }
   const wk = addD(mondayOf(new Date()), weekOffset * 7);
@@ -376,6 +387,46 @@ function calendarCard() {
   card.append(grid, el("p", { class: "small muted", style: "margin:6px 0 0" }, n + " les" + (n === 1 ? "" : "sen") + " deze week"));
   return card;
 }
+// 💬 in the top corner: red number = unread student messages, click = list of who wrote.
+// Also shown in the browser tab title and on the installed app's icon (where supported).
+let inboxOpen = false;
+function inboxButton() {
+  const who = students.map(s => ({ s, n: unreadCount(s) })).filter(x => x.n);
+  const total = who.reduce((a, x) => a + x.n, 0);
+  document.title = (total ? "(" + total + ") " : "") + "Huiswerk – leraar";
+  try { if (navigator.setAppBadge) total ? navigator.setAppBadge(total) : navigator.clearAppBadge(); } catch (e) {}
+  const wrap = el("span", { class: "inbox" });
+  wrap.append(el("button", { class: "inbox-btn" + (total ? " has" : ""), title: total ? total + " nieuw bericht" + (total === 1 ? "" : "en") : "Geen nieuwe berichten",
+      onclick: () => { inboxOpen = !inboxOpen; mainScreen(); } },
+    chatIcon(), total ? el("span", { class: "inbox-count" }, total > 99 ? "99+" : String(total)) : null));
+  if (inboxOpen) {
+    wrap.append(el("div", { class: "inbox-pop" },
+      who.length ? who.map(x => el("button", { class: "inbox-item", onclick: () => { inboxOpen = false; focusStudent(x.s.id); } },
+        el("strong", null, x.s.name || x.s.id), " · " + x.n + " nieuw",
+        el("div", { class: "small muted" }, lastStudentMsg(x.s))))
+        : el("p", { class: "small muted", style: "margin:4px 8px" }, "Geen nieuwe berichten.")));
+  }
+  return wrap;
+}
+function chatIcon() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("width", "22"); svg.setAttribute("height", "22");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("fill", "currentColor");
+  path.setAttribute("d", "M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm3 6a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm5 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z");
+  path.setAttribute("fill-rule", "evenodd");
+  svg.append(path);
+  return svg;
+}
+function lastStudentMsg(s) {
+  const m = (s.msgs || []).filter(m => m.from === "student").pop();
+  if (!m) return "";
+  const txt = m.text || (m.clip ? "🎙️ Opname" : "");
+  return (m.exTitle ? m.exTitle + ": " : "") + (txt.length > 60 ? txt.slice(0, 60) + "…" : txt);
+}
+
 function focusStudent(id) {
   open[id] = true; mainScreen();
   const n = document.getElementById("st-" + id);
@@ -533,7 +584,7 @@ function rulesScreen() {
 function mainScreen() {
   const head = el("header", null,
     el("h1", null, "Huiswerk"),
-    el("div", { class: "row small muted" }, user.email,
+    el("div", { class: "row small muted" }, inboxButton(), user.email,
       el("button", { class: "ghost", onclick: () => A.signOut(auth) }, "Uitloggen")));
 
   const list = el("div");
