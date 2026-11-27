@@ -141,7 +141,9 @@
   .rem-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
   .rem-select { font: inherit; font-size: .95rem; padding: 8px 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
   .rem-hint { font-size: .85rem; color: var(--muted); margin: 10px 0 0; }
-  .rem-row .rem-hint { margin: 0; }
+  .rem-row .rem-hint { margin: 0; flex-basis: 100%; }
+  .rem-at { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+  .rem-time { font: inherit; font-size: .95rem; padding: 7px 8px; border: 2px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); }
   .msg-old { margin-bottom: 8px; }
   .msg-old summary { cursor: pointer; color: var(--ok); font-weight: 700; font-size: .9rem; margin-bottom: 6px; }
   .solve-btn { font: inherit; font-weight: 700; background: #e3f1e8; color: #1f6e40; border: 0; border-radius: 10px; padding: 8px 14px; cursor: pointer; margin-bottom: 8px; }
@@ -283,43 +285,62 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     save(state); render();
   }
 
-  // ---------- practice reminder (push notification) ----------
-  // Stored per device in progress/<code>/devices/<id> {endpoint, keys, hour, tz, lang, updated};
-  // hour -1 = only replies from the teacher. Sent by scripts/push/send.mjs, only if today isn't ticked yet.
+  // ---------- notifications (push) ----------
+  // Stored per device in progress/<code>/devices/<id> {endpoint, keys, hour, minute, tz, lang, updated}.
+  // Replies from the teacher always come through; hour/minute = also a daily practice reminder at that time
+  // (only if today isn't ticked yet); hour -1 = replies only. Sent by scripts/push/send.mjs.
   const REM_KEY = "drumhw-remind:" + code;
-  let remHour = null; // null = off
-  try { const v = localStorage.getItem(REM_KEY); remHour = v === null || v === "" ? null : +v; } catch (e) {}
-  // TEST PHASE: only these student pages show the reminder option. Set to null to show it to everyone.
+  let rem = null; // null = off, { hour: -1 } = replies only, { hour, minute } = replies + reminder
+  try {
+    const v = localStorage.getItem(REM_KEY) || "";
+    if (v === "-1") rem = { hour: -1, minute: 0 };
+    else if (/^\d{1,2}(:\d{2})?$/.test(v)) { const [h, m] = v.split(":"); rem = { hour: +h, minute: +(m || 0) }; }
+  } catch (e) {}
+  const hhmm = r => String(r.hour).padStart(2, "0") + ":" + String(r.minute || 0).padStart(2, "0");
+  // TEST PHASE: only these student pages show the notification option. Set to null to show it to everyone.
   const PUSH_ONLY_FOR = ["ben"];
   function reminderRow() {
     if (VIEW) return null;
     if (PUSH_ONLY_FOR && !PUSH_ONLY_FOR.includes(code)) return null;
     if (!Push.pushSupported()) return Push.needsHomeScreen() ? el("p", { class: "rem-hint" }, T("remHome")) : null;
-    const sel = el("select", { class: "rem-select", "aria-label": T("remOff") },
-      el("option", { value: "" }, T("remOff")),
-      el("option", { value: "-1" }, T("remReplies")),
-      [17, 18, 19, 20, 21].map(h => el("option", { value: String(h) }, T("remAt")(h))));
-    sel.value = remHour === null ? "" : String(remHour);
-    sel.addEventListener("change", () => setReminder(sel.value === "" ? null : +sel.value, sel));
-    return el("div", { class: "rem-row" }, sel, remHour !== null && remHour >= 0 ? el("span", { class: "rem-hint" }, T("remHint")) : null);
+    const mode = el("select", { class: "rem-select", "aria-label": T("remOff") },
+      el("option", { value: "off" }, T("remOff")),
+      el("option", { value: "replies" }, T("remReplies")),
+      el("option", { value: "both" }, T("remBoth")));
+    mode.value = !rem ? "off" : rem.hour < 0 ? "replies" : "both";
+    const time = el("input", { type: "time", class: "rem-time", step: "900", "aria-label": T("remTime"),
+      value: rem && rem.hour >= 0 ? hhmm(rem) : "19:00" });
+    const apply = () => {
+      if (mode.value === "off") return setReminder(null, [mode, time]);
+      if (mode.value === "replies") return setReminder({ hour: -1, minute: 0 }, [mode, time]);
+      const [h, m] = (time.value || "19:00").split(":").map(Number);
+      setReminder({ hour: h, minute: m }, [mode, time]);
+    };
+    mode.addEventListener("change", apply);
+    time.addEventListener("change", () => { if (mode.value === "both" && time.value) apply(); });
+    const both = mode.value === "both";
+    return el("div", { class: "rem-row" }, mode,
+      both ? el("label", { class: "rem-at" }, T("remAtLabel"), " ", time) : null,
+      both ? el("span", { class: "rem-hint" }, T("remHint")) : null);
   }
-  async function setReminder(hour, sel) {
-    sel.disabled = true;
+  async function setReminder(next, controls) {
+    controls.forEach(c => { c.disabled = true; });
     try {
       const f = await getDb(); if (!f) throw new Error("offline");
-      if (hour === null) {
+      if (next === null) {
         const sub = await Push.unsubscribe();
         if (sub) await f.L.deleteDoc(f.L.doc(f.db, "progress", code, "devices", await Push.deviceId(sub)));
         toastMsg(T("remGone"));
       } else {
         const sub = await Push.subscribe();
         await f.L.setDoc(f.L.doc(f.db, "progress", code, "devices", await Push.deviceId(sub)),
-          Object.assign(Push.subData(sub), { hour, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Brussels",
+          Object.assign(Push.subData(sub), { hour: next.hour, minute: next.minute || 0,
+            tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Brussels",
             lang: (data && data.lang) || "nl", updated: new Date().toISOString() }));
-        toastMsg(T("remOn"));
+        toastMsg(next.hour < 0 ? T("remOnReplies") : T("remOnAt")(hhmm(next)));
       }
-      remHour = hour;
-      try { localStorage.setItem(REM_KEY, hour === null ? "" : String(hour)); } catch (e) {}
+      rem = next;
+      try { localStorage.setItem(REM_KEY, !next ? "" : next.hour < 0 ? "-1" : hhmm(next)); } catch (e) {}
     } catch (e) {
       console.warn("reminder:", e);
       toastMsg(e.message === "denied" ? T("remDenied") : T("remFail"));
@@ -412,8 +433,10 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           sent: "Verstuurd ✓ Je leraar ziet het.", sendFail: "Versturen lukte niet. Probeer later opnieuw.",
           replied: "💬 Je leraar heeft geantwoord — kijk bij de oefening.",
           rec: "🎙️ Opname sturen", recNow: "Opnemen…", recStop: "■ Stop", recAgain: "Opnieuw",
-          remOff: "🔔 Herinnering: uit", remReplies: "🔔 Alleen als je leraar antwoordt", remAt: h => "🔔 Herinnering om " + h + ":00",
-          remOn: "🔔 Herinnering staat aan", remGone: "Herinnering uitgezet", remDenied: "Meldingen staan uit voor deze site. Zet ze aan in je instellingen.",
+          remOff: "🔔 Meldingen: uit", remReplies: "🔔 Alleen antwoorden van je leraar", remBoth: "🔔 Antwoorden + dagelijkse herinnering",
+          remTime: "Uur van je herinnering", remAtLabel: "om",
+          remOnReplies: "🔔 Je krijgt een melding als je leraar antwoordt", remOnAt: t => "🔔 Herinnering om " + t + " + antwoorden van je leraar",
+          remGone: "Meldingen uitgezet", remDenied: "Meldingen staan uit voor deze site. Zet ze aan in je instellingen.",
           remFail: "Lukte niet. Probeer later opnieuw.", remHome: "📲 Herinneringen op je iPhone? Zet deze pagina eerst op je beginscherm: Deel-knop → \"Zet op beginscherm\", en open hem van daaruit.",
           remHint: "Alleen op dagen dat je nog niet geoefend hebt.",
           recGone: "🎙️ Opname verwijderd na 3 maanden", recPlay: "▶ Opname", recNoMic: "Geen toegang tot je microfoon. Sta het toe in je browser en probeer opnieuw.",
@@ -432,8 +455,10 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           sent: "Sent ✓ Your teacher will see it.", sendFail: "Couldn't send. Please try again later.",
           replied: "💬 Your teacher replied — see the exercise.",
           rec: "🎙️ Send a recording", recNow: "Recording…", recStop: "■ Stop", recAgain: "Again",
-          remOff: "🔔 Reminder: off", remReplies: "🔔 Only when your teacher replies", remAt: h => "🔔 Reminder at " + h + ":00",
-          remOn: "🔔 Reminder is on", remGone: "Reminder turned off", remDenied: "Notifications are blocked for this site. Turn them on in your settings.",
+          remOff: "🔔 Notifications: off", remReplies: "🔔 Only replies from your teacher", remBoth: "🔔 Replies + daily reminder",
+          remTime: "Time of your reminder", remAtLabel: "at",
+          remOnReplies: "🔔 You'll be notified when your teacher replies", remOnAt: t => "🔔 Reminder at " + t + " + replies from your teacher",
+          remGone: "Notifications turned off", remDenied: "Notifications are blocked for this site. Turn them on in your settings.",
           remFail: "Didn't work. Please try again later.", remHome: "📲 Reminders on your iPhone? First add this page to your home screen: Share button → \"Add to Home Screen\", and open it from there.",
           remHint: "Only on days you haven't practised yet.",
           recGone: "🎙️ Recording removed after 3 months", recPlay: "▶ Recording", recNoMic: "No access to your microphone. Allow it in your browser and try again.",

@@ -1,7 +1,7 @@
 # Pushmeldingen instellen (eenmalig, ~10 min)
 
 Wat het doet:
-- **Leerlingen** kiezen op hun pagina (onder "Ik heb vandaag geoefend") een herinnering: 17:00 t/m 21:00, of "alleen als je leraar antwoordt".
+- **Leerlingen** kiezen op hun pagina (onder "Ik heb vandaag geoefend"): "Alleen antwoorden van je leraar", of "Antwoorden + dagelijkse herinnering" op een uur dat ze zelf kiezen.
   Ze krijgen "🥁 Al geoefend vandaag?" **alleen op dagen dat ze nog niet aangevinkt hebben**, en een melding als jij antwoordt.
 - **Jij** zet op de leraarpagina de 🔕/🔔-knop (rechtsboven) aan en krijgt een melding bij een nieuw bericht of opname.
 - iPhone: werkt alleen als de leerling de pagina **op het beginscherm** zet (iOS 16.4+). De pagina legt dat zelf uit.

@@ -3,7 +3,7 @@
 //   FIREBASE_SERVICE_ACCOUNT  the JSON key of a Firebase service account (reads/writes Firestore)
 //   VAPID_PRIVATE             private half of the web-push key (public half: huiswerk/push-config.js)
 //
-// 1. Practice reminder: progress/<code>/devices/<id> with hour H → once a day from H:00 (until H+2:59),
+// 1. Practice reminder: progress/<code>/devices/<id> with hour H, minute M → once a day from H:M (up to 3 h later),
 //    only if that day isn't ticked as practised yet. Remembers lastSent on the device doc.
 // 2. New messages since the last run (pushState/main.lastMsgCheck):
 //    from a student → teacherDevices/*; from the teacher → that student's devices.
@@ -32,10 +32,10 @@ webpush.setVapidDetails("https://drumhof.com", vapidPublic, vapidPrivate);
 function local(tz, d = new Date()) {
   let parts;
   try {
-    parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(d);
+    parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d);
   } catch (e) { return local(DEFAULT_TZ, d); }
   const p = Object.fromEntries(parts.map(x => [x.type, x.value]));
-  return { date: `${p.year}-${p.month}-${p.day}`, hour: +p.hour };
+  return { date: `${p.year}-${p.month}-${p.day}`, hour: +p.hour, mins: +p.hour * 60 + +p.minute };
 }
 const prevDay = iso => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); };
 
@@ -87,7 +87,8 @@ for (const st of students) {
       const v = d.data();
       if (!(v.hour >= 0)) continue;
       const l = local(v.tz || DEFAULT_TZ);
-      if (v.lastSent === l.date || l.hour < v.hour || l.hour > v.hour + 2) continue;
+      const target = v.hour * 60 + (v.minute || 0);
+      if (v.lastSent === l.date || l.mins < target || l.mins > target + 180) continue;
       if (!days.has(l.date)) {
         let streak = 0;
         for (let x = prevDay(l.date); days.has(x); x = prevDay(x)) streak++;

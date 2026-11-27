@@ -603,9 +603,11 @@ service cloud.firestore {
       // Push notifications: one doc per phone/browser (hour = daily reminder, -1 = only replies)
       match /devices/{id} {
         allow create, update: if exists(/databases/$(database)/documents/students/$(student))
-          && request.resource.data.keys().hasOnly(["endpoint", "keys", "hour", "tz", "lang", "updated"])
+          && request.resource.data.keys().hasOnly(["endpoint", "keys", "hour", "minute", "tz", "lang", "updated"])
           && request.resource.data.endpoint is string && request.resource.data.endpoint.size() < 1000
-          && request.resource.data.hour is int && request.resource.data.hour >= -1 && request.resource.data.hour <= 23;
+          && request.resource.data.hour is int && request.resource.data.hour >= -1 && request.resource.data.hour <= 23
+          && (!("minute" in request.resource.data) || (request.resource.data.minute is int
+              && request.resource.data.minute >= 0 && request.resource.data.minute <= 59));
         allow delete: if true;
         allow get, list: if isTeacher();
       }
