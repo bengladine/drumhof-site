@@ -824,9 +824,10 @@ service cloud.firestore {
       allow get: if true;
       allow list, delete: if isTeacher();
       allow create, update: if exists(/databases/$(database)/documents/students/$(student))
-        && request.resource.data.keys().hasOnly(["days", "tempos", "opened", "updated"])
+        && request.resource.data.keys().hasOnly(["days", "tempos", "opened", "best", "updated"])
         && request.resource.data.days is list && request.resource.data.days.size() <= 3000
-        && request.resource.data.tempos is map;
+        && request.resource.data.tempos is map
+        && (!("best" in request.resource.data) || request.resource.data.best is map);
       // Questions/notes from the student page, replies from the teacher
       match /messages/{id} {
         allow read: if true;
@@ -1052,9 +1053,25 @@ function sinceLesson(s) {
     const isDone = (ex, id) => { const t = (ex.tempos && ex.tempos.length) ? ex.tempos : ["done"]; return t.every(x => (tick[id] || []).includes(x)); };
     goals = exs.filter((ex, i) => isDone(ex, ids[i])).length + "/" + exs.length + " doelen gehaald";
   }
-  return el("div", { class: "small", style: "font-weight:400;margin-top:2px" },
+  // tempo per exercise: "Lukt al op" (student/teacher) or the highest ticked step
+  let tempoLine = null;
+  if (h) {
+    const exs = Array.isArray(h.exercises) ? h.exercises : [h];
+    const ids = Array.isArray(h.exercises) ? exs.map((ex, i) => h.id + "/" + (ex.id || i)) : [h.id];
+    const best = p.best || {};
+    const items = exs.map((ex, i) => {
+      if (!(ex.tempos && ex.tempos.length)) return null;
+      const goal = Math.min(...ex.tempos) === Math.max(...ex.tempos) ? Math.max(...ex.tempos) : Math.min(...ex.tempos) + "–" + Math.max(...ex.tempos);
+      const ticked = (tick[ids[i]] || []).filter(x => typeof x === "number");
+      const b = best[ids[i]];
+      const now = b ? b.bpm + " bpm" + (b.by === "teacher" ? " (jij)" : "") : ticked.length ? Math.max(...ticked) + " bpm ✓" : "–";
+      return (ex.title || "Oefening") + ": " + now + " (doel " + goal + ")";
+    }).filter(Boolean);
+    if (items.length) tempoLine = el("div", { class: "small muted", style: "font-weight:400" }, "🎯 " + items.join(" · "));
+  }
+  return el("div", null, el("div", { class: "small", style: "font-weight:400;margin-top:2px" },
     el("strong", null, "Sinds les " + dateLabel(L, "nl") + ": "),
-    practiced + "× geoefend · " + opened + "× geopend" + (goals ? " · " + goals : ""));
+    practiced + "× geoefend · " + opened + "× geopend" + (goals ? " · " + goals : "")), tempoLine);
 }
 
 // Messages: unread = student messages after the time you last opened this student's card

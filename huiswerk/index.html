@@ -84,6 +84,9 @@
   ul.focus { margin: 0; padding-left: 20px; }
   ul.focus li { margin: 4px 0; }
   .card.always { border-left: 5px solid var(--accent); }
+  .best-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-weight: 600; }
+  .best-input { width: 80px; font: inherit; padding: 6px 8px; border: 2px solid var(--line); border-radius: 10px; margin: 0 4px; }
+  .best-by { font-weight: 400; font-size: .85rem; color: var(--muted); }
   .celebrate {
     background: var(--ok); color: #fff; border-radius: 12px; padding: 12px 14px;
     font-weight: 700; margin-top: 12px;
@@ -208,6 +211,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   }
   let state = load();
   state.opened = state.opened || [];
+  state.best = state.best || {};
 
   // ---------- practice sync (database, so ticks show up on every device + on the teacher page) ----------
   // No accounts: the student's link (?s=code) is the key. progress/<code> = { days, tempos, updated }.
@@ -233,7 +237,10 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
   function mergeInto(local, cloud) {
     const tempos = Object.assign({}, cloud.tempos);
     Object.keys(local.tempos || {}).forEach(k => { tempos[k] = union(tempos[k], local.tempos[k]); });
-    return { days: union(local.days, cloud.days), tempos, opened: union(local.opened, cloud.opened) };
+    // best tempo: the most recent entry wins (student or teacher)
+    const best = Object.assign({}, cloud.best);
+    Object.keys(local.best || {}).forEach(k => { if (!best[k] || (local.best[k].at || "") > (best[k].at || "")) best[k] = local.best[k]; });
+    return { days: union(local.days, cloud.days), tempos, opened: union(local.opened, cloud.opened), best };
   }
   async function pushProgress() {
     if (VIEW) return;
@@ -241,7 +248,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       const f = await getDb(); if (!f) return;
       await f.L.setDoc(f.L.doc(f.db, "progress", code),
         { days: state.days, tempos: state.tempos || {}, opened: (state.opened || []).slice(-400),
-          updated: new Date().toISOString() });
+          best: state.best || {}, updated: new Date().toISOString() });
       state.dirty = false; state.synced = true; saveLocal(state);
     } catch (e) { console.warn("progress push:", e); }
   }
@@ -250,19 +257,19 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
       const f = await getDb(); if (!f) return false;
       const snap = await f.L.getDoc(f.L.doc(f.db, "progress", code));
       const cloud = snap.exists() ? snap.data() : null;
-      const before = JSON.stringify([state.days, state.tempos]);
+      const before = JSON.stringify([state.days, state.tempos, state.best]);
       const needsPush = !VIEW && (state.dirty || !state.synced);
       let next;
-      if (!cloud) next = { days: state.days, tempos: state.tempos, opened: state.opened };
+      if (!cloud) next = { days: state.days, tempos: state.tempos, opened: state.opened, best: state.best };
       else if (needsPush) next = mergeInto(state, cloud);
-      else next = { days: cloud.days || [], tempos: cloud.tempos || {}, opened: cloud.opened || [] };
-      state.days = next.days; state.tempos = next.tempos || {}; state.opened = next.opened || [];
+      else next = { days: cloud.days || [], tempos: cloud.tempos || {}, opened: cloud.opened || [], best: cloud.best || {} };
+      state.days = next.days; state.tempos = next.tempos || {}; state.opened = next.opened || []; state.best = next.best || {};
       // Count today as "opened the app" (shown to the teacher), once per day
       let changed = needsPush;
       if (!VIEW && !state.opened.includes(todayKey)) { state.opened.push(todayKey); changed = true; }
       if (!VIEW) { state.synced = state.synced || !!cloud; saveLocal(state); }
       if (changed) await pushProgress();
-      return JSON.stringify([state.days, state.tempos]) !== before;
+      return JSON.stringify([state.days, state.tempos, state.best]) !== before;
     } catch (e) { console.warn("progress pull:", e); return false; }
   }
 
@@ -444,6 +451,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           pdf: "📄 Open de noten (PDF)", goal: "Jouw doel", done: "Gelukt", doneAt: "Gelukt op",
           goalDone: "🎉 Doel gehaald! Laat het zien in de les.", listen: "Luister & speel mee",
           tempoNow: b => "Tempo nu: " + b + " bpm — druk op ▶ in de noten", focus: "Let op", always: "📌 Altijd op letten",
+          bestNow: "Lukt al op", bestByTeacher: "door je leraar", bestByYou: "door jou",
           zoom: "🔍 Groter bekijken", close: "✕ Sluiten", rotate: "Tip: draai je gsm",
           ask: "💬 Vraag of opmerking voor je leraar", askPh: "Bv. de fill in maat 4 lukt nog niet…",
           send: "Versturen", cancel: "Annuleren", you: "Jij", teacher: "Leraar", isNew: "nieuw",
@@ -466,6 +474,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           pdf: "📄 Open the sheet music (PDF)", goal: "Your goal", done: "Done", doneAt: "Done at",
           goalDone: "🎉 Goal reached! Show it in your next lesson.", listen: "Listen & play along",
           tempoNow: b => "Tempo now: " + b + " bpm — press ▶ in the notation", focus: "Focus on", always: "📌 Always keep in mind",
+          bestNow: "Works at", bestByTeacher: "by your teacher", bestByYou: "by you",
           zoom: "🔍 View larger", close: "✕ Close", rotate: "Tip: turn your phone sideways",
           ask: "💬 Question or note for your teacher", askPh: "E.g. the fill in bar 4 doesn't work yet…",
           send: "Send", cancel: "Cancel", you: "You", teacher: "Teacher", isNew: "new",
@@ -649,6 +658,7 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
           }, "▶ " + t) : el("strong", { style: "min-width:80px" }, t + " bpm"),
           el("label", { class: "check" }, box, checked ? T("done") + " ✓" : T("doneAt") + " " + t)));
       });
+      if (tempos.length) card.append(bestRow(id, tempos));
       wrap.append(card);
     }
 
@@ -660,6 +670,37 @@ const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
     // 5. Questions / notes for the teacher, and the teacher's replies
     wrap.append(messageCard(id, exTitle));
     return wrap;
+  }
+
+  // ---------- "Lukt al op … bpm": the tempo it works at now (student at home, or the teacher in Bekijk) ----------
+  function bestRow(id, tempos) {
+    const b = state.best[id];
+    const inp = el("input", { type: "number", class: "best-input", min: "20", max: "400", step: "1", inputmode: "numeric",
+      placeholder: String(Math.min(...tempos) - 10 > 20 ? Math.min(...tempos) - 10 : ""), value: b ? String(b.bpm) : "",
+      "aria-label": T("bestNow") });
+    const info = b ? el("span", { class: "best-by" }, "(" + (b.by === "teacher" ? T("bestByTeacher") : T("bestByYou")) +
+      (b.at ? ", " + new Date(b.at).toLocaleDateString(document.documentElement.lang === "en" ? "en-GB" : "nl-BE", { day: "numeric", month: "short" }) : "") + ")") : null;
+    const saveBest = async () => {
+      const v = Math.round(+inp.value);
+      const cur = state.best[id];
+      if (inp.value === "" ? !cur : cur && cur.bpm === v) return;
+      const entry = inp.value === "" ? null : { bpm: v, by: VIEW ? "teacher" : "student", at: new Date().toISOString() };
+      if (!(entry === null || (v >= 20 && v <= 400))) { inp.value = cur ? cur.bpm : ""; return; }
+      if (VIEW) {
+        // the teacher (Bekijk): write only this one value, straight to the database
+        try {
+          const f = await getDb();
+          await f.L.setDoc(f.L.doc(f.db, "progress", code), { best: { [id]: entry === null ? f.L.deleteField() : entry } }, { merge: true });
+          if (entry) state.best[id] = entry; else delete state.best[id];
+          notifyTeacherPage(); render(); toastMsg("Tempo opgeslagen ✓");
+        } catch (e) { console.warn("best:", e); toastMsg(T("sendFail")); }
+        return;
+      }
+      if (entry) state.best[id] = entry; else delete state.best[id];
+      save(state); render();
+    };
+    inp.addEventListener("change", saveBest);
+    return el("div", { class: "best-row" }, el("label", null, T("bestNow"), " ", inp, " bpm"), info);
   }
 
   // ---------- messages (progress/<code>/messages): student <-> teacher, per exercise ----------
