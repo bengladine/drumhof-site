@@ -238,6 +238,18 @@ function openTab(s) {
   }
   showTab(t.id);
 }
+// "🥁 Mijn huiswerk": your own student page (the student marked "Dit ben ik"), as a normal student,
+// so you can tick days, record and ask questions in the same app
+function openOwnTab(s) {
+  let t = tabs.find(x => x.id === "__me");
+  if (!t) {
+    t = { id: "__me", name: "🥁 Mijn huiswerk",
+          frame: el("iframe", { src: studentLink(s), title: "Mijn huiswerk", allow: "microphone; autoplay" }) };
+    tabs.push(t);
+    frames.append(t.frame);
+  }
+  showTab(t.id);
+}
 function closeTab(id) {
   const i = tabs.findIndex(x => x.id === id);
   if (i < 0) return;
@@ -880,6 +892,7 @@ function mainScreen() {
   const head = el("header", null,
     el("h1", null, "Huiswerk"),
     el("div", { class: "row small muted" },
+      (me => me ? el("button", { class: "ds-open", title: "Je eigen huiswerkpagina, als leerling", onclick: () => openOwnTab(me) }, "🥁 Mijn huiswerk") : null)(students.find(x => x.priv && x.priv.self)),
       el("button", { class: "ds-open", title: "Groove schrijven en aan huiswerk toevoegen", onclick: () => openDrumsheet() }, "✏️ Drumsheet"),
       bellButton(), inboxButton(), user.email,
       el("button", { class: "ghost", onclick: () => A.signOut(auth) }, "Uitloggen")));
@@ -1208,6 +1221,8 @@ function studentCard(s) {
 function addStudentForm() { editStudent(null); }
 function editStudent(s) {
   const name = el("input", { value: s ? s.name : "", placeholder: "Voornaam" });
+  const isSelf = el("input", { type: "checkbox" });
+  isSelf.checked = !!(s && s.priv && s.priv.self);
   const always = el("textarea", { placeholder: "bv. Rechte rug\nPolsen los\nTel hardop mee" });
   always.value = s && s.always ? [].concat(s.always).join("\n") : "";
   const lang = el("select", null,
@@ -1222,6 +1237,7 @@ function editStudent(s) {
     el("h2", null, s ? "Leerling wijzigen" : "Nieuwe leerling"),
     el("label", null, "Naam"), name,
     el("label", null, "Taal van de pagina"), lang,
+    ledgerOK ? el("label", { class: "check" }, isSelf, "🥁 Dit ben ik ", el("span", { class: "muted", style: "font-weight:400" }, "(mijn eigen huiswerk: knop \"Mijn huiswerk\" bovenaan)")) : null,
     el("label", null, "📌 Altijd op letten ", el("span", { class: "muted" }, "(één punt per regel; staat elke week bovenaan de pagina van de leerling)")), always,
     s ? el("p", { class: "small muted" }, "Link blijft: " + studentLink(s)) : null,
     ledgerOK ? el("fieldset", null, el("legend", null, "Tarief ", el("span", { class: "muted small" }, "(alleen voor jou)")),
@@ -1243,7 +1259,7 @@ function editStudent(s) {
     try {
       await F.setDoc(F.doc(db, "students", id), { name: nm, lang: lang.value, always: lines(always.value) }, { merge: true });
       if (ledgerOK) await F.setDoc(F.doc(db, "private", id),
-        { price: price.value.trim() === "" ? null : num(price.value), duration: +dur.value, opening: num(opening.value) }, { merge: true });
+        { price: price.value.trim() === "" ? null : num(price.value), duration: +dur.value, opening: num(opening.value), self: isSelf.checked }, { merge: true });
       ov.remove(); await reload();
       if (!s) toast("Link: " + studentLink({ id }));
     } catch (e) { err.textContent = "Opslaan mislukt: " + e.message; }
