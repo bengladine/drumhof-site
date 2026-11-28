@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Gitaar oefenen</title>
+<style>
+  :root {
+    --bg: #f4f2ee; --card: #fff; --ink: #1d1d1b; --muted: #6b6860;
+    --accent: #2b7a78; --pin: #e4572e; --ok: #2e9e5b; --line: #e3dfd6; --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 600px; margin: 0 auto; padding: 16px 14px 64px; }
+  @media (min-width: 900px) { main { max-width: 900px; padding: 28px 24px 64px; } }
+  h1 { font-size: 1.5rem; margin: 0; }
+  .top { display: flex; align-items: center; gap: 10px; margin: 6px 0 14px; }
+  .top .grow { flex: 1; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .label { font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+           color: var(--muted); margin: 24px 0 8px; }
+  .kicker { font-size: .75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
+  .ttl { font-size: 1.25rem; font-weight: 800; line-height: 1.25; margin: 2px 0 0; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .chip { font-size: .85rem; padding: 3px 10px; border-radius: 999px; background: var(--bg); }
+  .chip.pin { background: #fde6df; color: #a33b1c; font-weight: 700; }
+  .chip.ok { background: #dff3e7; color: #1f6e40; font-weight: 700; }
+  .note { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--bg); border-radius: 0 8px 8px 0; }
+
+  button, .btn { font: inherit; font-weight: 700; border-radius: 12px; padding: 10px 14px; cursor: pointer;
+                 border: 2px solid var(--ink); background: #fff; color: var(--ink); text-decoration: none;
+                 display: inline-flex; align-items: center; gap: 6px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.on { background: var(--ink); color: #fff; }
+  button.pin-on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  button.small { padding: 6px 10px; font-size: .9rem; border-radius: 10px; }
+  button.ghost { border-color: transparent; background: transparent; }
+  button:disabled { opacity: .4; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+  pre.tab { margin: 10px 0 0; overflow-x: auto; font: 13.5px/1.35 ui-monospace, Menlo, Consolas, monospace;
+            background: var(--bg); padding: 12px; border-radius: 10px; white-space: pre; }
+  @media (min-width: 600px) { pre.tab { font-size: 15px; } }
+
+  /* streak */
+  .streak { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .streak-num { font-size: 2rem; font-weight: 800; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day { border: 2px solid var(--line); background: #fff; border-radius: 12px; padding: 6px 0;
+         font-size: .85rem; min-height: 52px; display: block; text-align: center; font-weight: 400; }
+  .day b { display: block; font-size: 1.05rem; }
+  .day.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .day.today { border-color: var(--ink); }
+
+  /* tempo steps */
+  .step { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--line); padding: 9px 0; }
+  .step:first-of-type { border-top: 0; }
+  .step button { min-width: 92px; justify-content: center; }
+  .check { display: flex; align-items: center; gap: 10px; flex: 1; cursor: pointer; }
+  .check input { width: 28px; height: 28px; accent-color: var(--ok); flex: 0 0 auto; }
+
+  /* songs */
+  details.song { background: var(--card); border-radius: var(--radius); margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  details.song > summary { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; list-style: none; }
+  details.song > summary::-webkit-details-marker { display: none; }
+  .mark { flex: 0 0 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--ink); font-weight: 800; }
+  .song-body { padding: 0 16px 16px; }
+  .sum-right { margin-left: auto; text-align: right; font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  .sec { border-top: 1px solid var(--line); padding: 14px 0 4px; }
+  .sec-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sec-title { font-weight: 800; flex: 1; min-width: 120px; }
+  .sec.pinned .sec-title { color: var(--pin); }
+  .sec.done .sec-title { color: var(--ok); }
+
+  .video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; margin-top: 10px; }
+  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  /* forms */
+  .overlay { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.35); overflow: auto; padding: 16px 10px; }
+  .sheet { max-width: 680px; margin: 0 auto; background: var(--bg); border-radius: var(--radius); padding: 16px; }
+  .sheet h2 { margin: 0 0 12px; font-size: 1.2rem; }
+  .field { display: block; margin-bottom: 10px; font-size: .9rem; font-weight: 700; color: var(--muted); }
+  .field input, .field textarea { display: block; width: 100%; margin-top: 4px; font: inherit; color: var(--ink); font-weight: 400;
+           padding: 9px 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; }
+  .field textarea { font: 13px/1.35 ui-monospace, Menlo, Consolas, monospace; min-height: 260px; white-space: pre; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .hint { color: var(--muted); font-size: .85rem; margin: 4px 0 10px; font-weight: 400; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff;
+           padding: 10px 16px; border-radius: 12px; z-index: 20; }
+  .empty { color: var(--muted); }
+  .error { background: #fff; border-radius: var(--radius); padding: 20px; }
+</style>
+</head>
+<body>
+<main id="app"><p class="sub">Laden…</p></main>
+
+<script type="module">
+import { firebaseConfig } from "../huiswerk/firebase-config.js";
+const FB = "https://www.gstatic.com/firebasejs/10.14.1/";
+const app = document.getElementById("app");
+const DEMO = new URLSearchParams(location.search).has("demo");
+
+// ================= helpers =================
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const k in attrs || {}) {
+    const v = attrs[k];
+    if (v == null || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (k === "value") n.value = v;
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) n.append(c);
+  return n;
+}
+// append that skips null/false (native append would print "null")
+const put = (n, ...kids) => { n.append(...kids.flat().filter(k => k != null && k !== false)); return n; };
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const today = new Date(); today.setHours(0, 0, 0, 0);
+const todayKey = ymd(today);
+const slug = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "stuk";
+const secs = t => String(t || "").split(":").reduce((a, b) => a * 60 + (+b || 0), 0);
+const mmss = s => Math.floor(s / 60) + ":" + pad(s % 60);
+function toast(msg) {
+  const t = el("div", { class: "toast" }, msg);
+  document.body.append(t); setTimeout(() => t.remove(), 2200);
+}
+function ytId(url) {
+  const m = String(url || "").match(/(?:v=|youtu\.be\/|shorts\/|embed\/|live\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+// ================= tab → parts =================
+// Ultimate Guitar tabs have headings like [Intro], [Verse 1], [Riff 2]. Every heading starts a part.
+// Text before the first heading becomes "Begin"; no headings at all = one part "Heel het liedje".
+function cleanTab(t) {
+  return String(t || "").replace(/\r/g, "")
+    .replace(/\[\/?(ch|tab)\]/g, "")        // UG's own markup, when copied from the source
+    .replace(/\n{4,}/g, "\n\n\n").replace(/\s+$/, "");
+}
+function parseSections(tab) {
+  const lines = cleanTab(tab).split("\n");
+  const out = [], seen = {};
+  let cur = null;
+  const push = (title, line) => {
+    const base = slug(title);
+    seen[base] = (seen[base] || 0) + 1;
+    cur = { key: seen[base] > 1 ? base + "-" + seen[base] : base, title, lines: [] };
+    out.push(cur);
+  };
+  for (const line of lines) {
+    const h = line.match(/^\s*\[([^\]]{1,40})\]\s*$/);
+    if (h) { push(h[1].trim()); continue; }
+    if (!cur) { if (!line.trim()) continue; push("Begin"); }
+    cur.lines.push(line);
+  }
+  if (out.length === 1 && out[0].title === "Begin") out[0].title = "Heel het liedje";
+  // same heading twice → "Chorus (2)"
+  const count = {};
+  out.forEach(s => { const n = count[s.title] = (count[s.title] || 0) + 1; if (n > 1) s.title += " (" + n + ")"; });
+  out.forEach(s => {
+    while (s.lines.length && !s.lines[0].trim()) s.lines.shift();
+    while (s.lines.length && !s.lines[s.lines.length - 1].trim()) s.lines.pop();
+    s.text = s.lines.join("\n");
+  });
+  // repeated choruses: when a later [Chorus] has no text of its own, show the first one's
+  out.forEach(s => {
+    if (!s.text) { const base = s.title.replace(/ \(\d+\)$/, ""); const twin = out.find(o => o !== s && o.title === base && o.text); if (twin) s.text = twin.text, s.same = true; }
+  });
+  return out;
+}
+
+// ================= storage =================
+// Firebase: private/_gitaar (streak days) + private/_gitaar/songs/<id>.
+// The existing rule "match /private/{document=**}" already allows only Ben's account.
+// ?demo keeps everything in this browser instead (for trying things out without signing in).
+let store, user = null;
+
+function demoStore() {
+  const K = "gitaar-demo";
+  const read = () => { try { return JSON.parse(localStorage.getItem(K)) || null; } catch (e) { return null; } };
+  const write = d => { try { localStorage.setItem(K, JSON.stringify(d)); } catch (e) {} };
+  let d = read();
+  if (!d) { d = { meta: { days: [] }, songs: { voorbeeld: exampleSong() } }; write(d); }
+  return {
+    async load() { return { meta: d.meta, songs: Object.entries(d.songs).map(([id, s]) => Object.assign({ id }, s)) }; },
+    async saveSong(id, s) { d.songs[id] = Object.assign({}, d.songs[id], s); write(d); },
+    async patchSection(id, key, sec) { const s = d.songs[id]; s.sections = s.sections || {}; s.sections[key] = sec; write(d); },
+    async deleteSong(id) { delete d.songs[id]; write(d); },
+    async saveMeta(m) { d.meta = m; write(d); }
+  };
+}
+async function firebaseStore() {
+  const { initializeApp } = await import(FB + "firebase-app.js");
+  const A = await import(FB + "firebase-auth.js");
+  const F = await import(FB + "firebase-firestore.js");
+  const fbApp = initializeApp(firebaseConfig);
+  const auth = A.getAuth(fbApp), db = F.getFirestore(fbApp);
+  const metaRef = F.doc(db, "private", "_gitaar");
+  const songs = F.collection(db, "private", "_gitaar", "songs");
+  return {
+    auth, A,
+    async load() {
+      const [m, s] = await Promise.all([F.getDoc(metaRef), F.getDocs(songs)]);
+      return { meta: m.exists() ? m.data() : { days: [] }, songs: s.docs.map(x => Object.assign({ id: x.id }, x.data())) };
+    },
+    async saveSong(id, s) { await F.setDoc(F.doc(songs, id), s, { merge: true }); },
+    async patchSection(id, key, sec) { await F.updateDoc(F.doc(songs, id), { ["sections." + key]: sec, updated: Date.now() }); },
+    async deleteSong(id) { await F.deleteDoc(F.doc(songs, id)); },
+    async saveMeta(m) { await F.setDoc(metaRef, m, { merge: true }); }
+  };
+}
+
+// ================= state =================
+let meta = { days: [] }, songs = [];
+const openSongs = new Set();
+async function reload() {
+  const r = await store.load();
+  meta = Object.assign({ days: [] }, r.meta);
+  songs = r.songs.sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  render();
+}
+const secState = (song, key) => (song.sections || {})[key] || {};
+async function setSec(song, key, patch, quiet) {
+  const sec = Object.assign({}, secState(song, key), patch);
+  song.sections = Object.assign({}, song.sections, { [key]: sec });
+  song.updated = Date.now();
+  if (!quiet) render();
+  try { await store.patchSection(song.id, key, sec); }
+  catch (e) { toast("Opslaan mislukt: " + (e.code || e.message)); }
+}
+function defaultTempos(song) {
+  const b = +song.bpm;
+  if (!b) return [60, 80, 100];
+  return [...new Set([Math.round(b * .6 / 5) * 5, Math.round(b * .8 / 5) * 5, b])];
+}
+
+// ================= metronome =================
+let audio = null, metro = null;
+function startMetronome(bpm, onStop) {
+  stopMetronome();
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  audio.resume();
+  let next = audio.currentTime + 0.1, beat = 0;
+  const tick = () => {
+    while (next < audio.currentTime + 0.2) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.frequency.value = beat % 4 === 0 ? 1500 : 1000;
+      g.gain.setValueAtTime(0.5, next); g.gain.exponentialRampToValueAtTime(0.001, next + 0.05);
+      o.connect(g).connect(audio.destination); o.start(next); o.stop(next + 0.06);
+      next += 60 / bpm; beat++;
+    }
+  };
+  tick();
+  metro = { bpm, timer: setInterval(tick, 50), onStop };
+}
+function stopMetronome() {
+  if (!metro) return;
+  clearInterval(metro.timer);
+  const f = metro.onStop; metro = null; f && f();
+}
+
+// ================= video =================
+function videoBlock(song, startAt, label) {
+  const id = ytId(song.video);
+  if (!song.video) return null;
+  const box = el("div");
+  const start = secs(startAt);
+  const text = (label || "Video") + (start ? " vanaf " + mmss(start) : "");
+  if (!id) return el("a", { class: "btn small", href: song.video, target: "_blank", rel: "noopener" }, "↗ " + text);
+  const btn = el("button", { class: "small", onclick: () => {
+    if (box.firstChild) { box.textContent = ""; btn.textContent = "▶ " + text; return; }
+    stopMetronome();
+    box.append(el("div", { class: "video" }, el("iframe", { allow: "autoplay; encrypted-media; fullscreen", allowfullscreen: true,
+      src: "https://www.youtube-nocookie.com/embed/" + id + "?autoplay=1&playsinline=1&rel=0&start=" + start })));
+    btn.textContent = "✕ Video sluiten";
+  } }, "▶ " + text);
+  return [btn, box];
+}
+
+// ================= practice card (a pinned part) =================
+function practiceCard(song, sec) {
+  const st = secState(song, sec.key);
+  const tempos = st.tempos && st.tempos.length ? st.tempos : defaultTempos(song);
+  const ticks = st.ticks || [];
+  const card = el("section", { class: "card" });
+  const chips = [song.tuning, song.capo ? "Capo " + song.capo : null].filter(Boolean);
+  const steps = el("div", { style: "margin-top:12px" });
+  const vid = videoBlock(song, st.start, "Video");
+
+  tempos.forEach(t => {
+    const box = el("input", { type: "checkbox", checked: ticks.includes(t) });
+    const txt = el("span", null, (ticks.includes(t) ? "Lukt op " + t + " ✓" : "Lukt op " + t));
+    box.onchange = () => {
+      const cur = (secState(song, sec.key).ticks || []).filter(x => x !== t);
+      if (box.checked) cur.push(t);
+      txt.textContent = box.checked ? "Lukt op " + t + " ✓" : "Lukt op " + t;
+      const all = tempos.every(x => cur.includes(x));
+      setSec(song, sec.key, { ticks: cur }, !all);
+      if (all) toast("🎉 Alle tempo's gelukt! Tik op ‘Kan ik’ als het erin zit.");
+    };
+    const btn = el("button", { onclick: () => {
+      if (metro && metro.bpm === t) return stopMetronome();
+      startMetronome(t, () => btn.classList.remove("on"));
+      btn.classList.add("on");
+    } }, "🥁 " + t);
+    steps.append(el("div", { class: "step" }, btn, el("label", { class: "check" }, box, txt)));
+  });
+
+  put(card,
+    el("div", { class: "kicker" }, (song.artist ? song.artist + " – " : "") + song.title),
+    el("p", { class: "ttl" }, sec.title),
+    chips.length ? el("div", { class: "chips" }, chips.map(c => el("span", { class: "chip" }, c))) : null,
+    st.note ? el("p", { class: "note" }, st.note) : null,
+    sec.text ? el("pre", { class: "tab" }, sec.text) : null,
+    steps,
+    el("div", { class: "row" },
+      vid,
+      el("button", { class: "small primary", onclick: () => setSec(song, sec.key, { done: true, pin: false }) }, "✓ Kan ik"),
+      el("button", { class: "small", onclick: () => partSettings(song, sec) }, "⚙︎ Tempo / start"),
+      el("button", { class: "small ghost", onclick: () => setSec(song, sec.key, { pin: false }) }, "Losmaken")));
+  return card;
+}
+
+// ================= song (all parts) =================
+function songView(song) {
+  const body = el("div", { class: "song-body" });
+  const chips = [song.tuning, song.capo ? "Capo " + song.capo : null, song.bpm ? song.bpm + " bpm" : null].filter(Boolean);
+  put(body,
+    chips.length ? el("div", { class: "chips", style: "margin:0" }, chips.map(c => el("span", { class: "chip" }, c))) : null,
+    song.notes ? el("p", { class: "note" }, song.notes) : null,
+    el("div", { class: "row", style: "margin-bottom:8px" },
+      song.ug ? el("a", { class: "btn small", href: song.ug, target: "_blank", rel: "noopener" }, "📖 Ultimate Guitar ↗") : null,
+      videoBlock(song, 0, "Video"),
+      el("button", { class: "small", onclick: () => songForm(song) }, "✏️ Bewerken")));
+
+  const secs_ = parseSections(song.tab);
+  if (!secs_.length) body.append(el("p", { class: "empty" }, "Nog geen tab. Tik op ✏️ Bewerken en plak hem erin."));
+  secs_.forEach(sec => {
+    const st = secState(song, sec.key);
+    body.append(el("div", { class: "sec" + (st.pin ? " pinned" : "") + (st.done ? " done" : "") },
+      el("div", { class: "sec-head" },
+        el("span", { class: "sec-title" }, sec.title, st.done ? " ✓" : ""),
+        el("button", { class: "small" + (st.pin ? " pin-on" : ""),
+          onclick: () => setSec(song, sec.key, { pin: !st.pin, done: st.pin ? st.done : false }) },
+          st.pin ? "📌 Aan het oefenen" : "📌 Oefenen"),
+        st.done ? el("button", { class: "small ghost", title: "Niet meer als gekend markeren",
+          onclick: () => setSec(song, sec.key, { done: false }) }, "↺") : null),
+      sec.text ? el("pre", { class: "tab" }, sec.text) : el("p", { class: "hint" }, "(leeg)")));
+  });
+  return body;
+}
+
+// ================= page =================
+function streakCard() {
+  const days = new Set(meta.days || []);
+  let d = days.has(todayKey) ? today : addDays(today, -1), n = 0;
+  while (days.has(ymd(d))) { n++; d = addDays(d, -1); }
+  const monday = addDays(today, -((today.getDay() + 6) % 7));
+  const week = el("div", { class: "week" });
+  ["ma", "di", "wo", "do", "vr", "za", "zo"].forEach((nm, i) => {
+    const day = addDays(monday, i), key = ymd(day), on = days.has(key);
+    week.append(el("button", { class: "day" + (on ? " on" : "") + (key === todayKey ? " today" : ""),
+      disabled: day > today, onclick: async () => {
+        const list = (meta.days || []).filter(x => x !== key);
+        if (!on) list.push(key);
+        meta.days = list.filter(x => x >= ymd(addDays(today, -400))); render();
+        try { await store.saveMeta({ days: meta.days }); } catch (e) { toast("Opslaan mislukt"); }
+      } }, nm, el("b", null, on ? "✓" : String(day.getDate()))));
+  });
+  return el("section", { class: "card" },
+    el("div", { class: "streak" }, el("span", { class: "streak-num" }, "🔥 " + n),
+      el("span", null, n === 1 ? "dag op rij geoefend" : "dagen op rij geoefend")), week);
+}
+
+function render() {
+  stopMetronome();
+  app.textContent = "";
+  app.append(el("div", { class: "top" },
+    el("h1", { class: "grow" }, "🎸 Gitaar"),
+    el("button", { class: "primary", onclick: () => songForm(null) }, "+ Liedje")));
+  if (DEMO) app.append(el("p", { class: "sub" }, "Demo: alles blijft in deze browser."));
+  app.append(streakCard());
+
+  // pinned parts, in song order
+  const pinned = [];
+  songs.forEach(s => parseSections(s.tab).forEach(sec => { if (secState(s, sec.key).pin) pinned.push([s, sec]); }));
+  app.append(el("p", { class: "label" }, "Nu oefenen" + (pinned.length ? " · " + pinned.length : "")));
+  if (!pinned.length) app.append(el("p", { class: "empty" },
+    songs.length ? "Open een liedje en tik op 📌 Oefenen bij het stuk dat je wil leren." : "Voeg een liedje toe met + Liedje."));
+  pinned.forEach(([s, sec]) => app.append(practiceCard(s, sec)));
+
+  if (songs.length) app.append(el("p", { class: "label" }, "Liedjes"));
+  songs.forEach(s => {
+    const parts = parseSections(s.tab);
+    const done = parts.filter(p => secState(s, p.key).done).length;
+    const pins = parts.filter(p => secState(s, p.key).pin).length;
+    const d = el("details", { class: "song", open: openSongs.has(s.id) },
+      el("summary", null,
+        el("span", { class: "mark" }, done && done === parts.length ? "✓" : "♪"),
+        el("span", null, el("div", { class: "kicker" }, s.artist || ""), el("div", { style: "font-weight:700" }, s.title)),
+        el("span", { class: "sum-right" }, pins ? el("div", { class: "chip pin" }, "📌 " + pins) : null,
+          parts.length ? el("div", null, done + "/" + parts.length + " kan ik") : null)));
+    let built = false;
+    d.addEventListener("toggle", () => {
+      if (d.open) { openSongs.add(s.id); if (!built) { d.append(songView(s)); built = true; } }
+      else openSongs.delete(s.id);
+    });
+    if (d.open) { d.append(songView(s)); built = true; }
+    app.append(d);
+  });
+}
+
+// ================= forms =================
+function overlay(title, ...content) {
+  const ov = el("div", { class: "overlay", onclick: e => { if (e.target === ov) ov.remove(); } },
+    el("div", { class: "sheet" }, el("h2", null, title), ...content));
+  document.body.append(ov);
+  return ov;
+}
+const field = (label, input, hint) => el("label", { class: "field" }, label, input, hint ? el("p", { class: "hint" }, hint) : null);
+
+function songForm(song) {
+  const s = song || {};
+  const f = {
+    artist: el("input", { value: s.artist || "", placeholder: "Foo Fighters" }),
+    title: el("input", { value: s.title || "", placeholder: "Titel" }),
+    tuning: el("input", { value: s.tuning || "", placeholder: "Standaard, Drop D…" }),
+    capo: el("input", { value: s.capo || "", inputmode: "numeric", placeholder: "0" }),
+    bpm: el("input", { value: s.bpm || "", inputmode: "numeric", placeholder: "bv. 120" }),
+    ug: el("input", { value: s.ug || "", type: "url", placeholder: "https://tabs.ultimate-guitar.com/…" }),
+    video: el("input", { value: s.video || "", type: "url", placeholder: "YouTube-link (les of origineel)" }),
+    notes: el("input", { value: s.notes || "", placeholder: "bv. les van … / speel mee met het origineel" }),
+    tab: el("textarea", { spellcheck: "false", placeholder: "[Intro]\ne|-----------------|\nB|-----------------|\n…\n\n[Riff 1]\n…" })
+  };
+  f.tab.value = s.tab || "";
+  const found = el("p", { class: "hint" });
+  const showParts = () => {
+    const p = parseSections(f.tab.value);
+    found.textContent = p.length ? "Stukken gevonden: " + p.map(x => x.title).join(" · ") : "Nog geen tab geplakt.";
+  };
+  f.tab.addEventListener("input", showParts); showParts();
+
+  const save = async () => {
+    if (!f.title.value.trim()) { f.title.focus(); return toast("Geef het liedje een titel"); }
+    const data = {
+      artist: f.artist.value.trim(), title: f.title.value.trim(), tuning: f.tuning.value.trim(),
+      capo: +f.capo.value || 0, bpm: +f.bpm.value || null, ug: f.ug.value.trim(), video: f.video.value.trim(),
+      notes: f.notes.value.trim(), tab: cleanTab(f.tab.value), updated: Date.now()
+    };
+    const id = s.id || slug(data.artist + "-" + data.title).slice(0, 40) + "-" + Math.random().toString(36).slice(2, 6);
+    if (!s.id) data.created = Date.now(), data.sections = {};
+    try {
+      await store.saveSong(id, data);
+      openSongs.add(id); ov.remove(); await reload(); toast("Opgeslagen");
+    } catch (e) { toast("Opslaan mislukt: " + (e.code || e.message)); }
+  };
+  const del = async () => {
+    if (!confirm("‘" + s.title + "’ verwijderen? Ook je vinkjes bij dit liedje zijn dan weg.")) return;
+    try { await store.deleteSong(s.id); ov.remove(); await reload(); toast("Verwijderd"); }
+    catch (e) { toast("Verwijderen mislukt: " + (e.code || e.message)); }
+  };
+  const ov = overlay(song ? "Liedje bewerken" : "Nieuw liedje",
+    el("div", { class: "grid2" }, field("Artiest", f.artist), field("Titel", f.title)),
+    el("div", { class: "grid3" }, field("Stemming", f.tuning), field("Capo", f.capo), field("Tempo (bpm)", f.bpm)),
+    field("Link Ultimate Guitar", f.ug),
+    field("Video", f.video),
+    field("Notitie", f.notes),
+    field("Tab", f.tab, "Plak de hele tab. Kopjes zoals [Intro], [Riff 1], [Chorus] worden aparte stukken. " +
+      "Ontbreekt er een? Typ zelf een regel als [Riff 2] boven dat stuk."),
+    found,
+    el("div", { class: "row" },
+      el("button", { class: "primary", onclick: save }, "Opslaan"),
+      el("button", { onclick: () => ov.remove() }, "Annuleren"),
+      song ? el("button", { class: "ghost", style: "margin-left:auto;color:#b3261e", onclick: del }, "🗑 Verwijderen") : null));
+  if (!song) f.artist.focus();
+}
+
+function partSettings(song, sec) {
+  const st = secState(song, sec.key);
+  const tempos = el("input", { value: (st.tempos && st.tempos.length ? st.tempos : defaultTempos(song)).join(", "), inputmode: "numeric" });
+  const start = el("input", { value: st.start || "", placeholder: "bv. 1:23" });
+  const note = el("input", { value: st.note || "", placeholder: "bv. alleen downstrokes, palm mute" });
+  const ov = overlay(sec.title + " – instellen",
+    field("Tempo-trap (bpm)", tempos, "Gescheiden door komma's, bv. 70, 90, 110"),
+    song.video ? field("Video start op", start, "Minuten:seconden waar dit stuk in de video begint") : null,
+    field("Let op", note),
+    el("div", { class: "row" },
+      el("button", { class: "primary", onclick: () => {
+        const t = tempos.value.split(/[^0-9]+/).map(Number).filter(x => x >= 20 && x <= 300);
+        ov.remove();
+        setSec(song, sec.key, { tempos: t, start: start.value.trim(), note: note.value.trim(),
+          ticks: (st.ticks || []).filter(x => t.includes(x)) });
+      } }, "Opslaan"),
+      el("button", { onclick: () => ov.remove() }, "Annuleren")));
+}
+
+// ================= sign-in / boot =================
+function screen(...kids) { app.textContent = ""; app.append(el("div", { class: "top" }, el("h1", null, "🎸 Gitaar")), ...kids); }
+
+(async function boot() {
+  try {
+    if (DEMO || !firebaseConfig) { store = demoStore(); return await reload(); }
+    store = await firebaseStore();
+    const { auth, A } = store;
+    A.getRedirectResult(auth).catch(() => {});
+    A.onAuthStateChanged(auth, async u => {
+      user = u;
+      if (!u) return screen(el("section", { class: "card" },
+        el("p", { style: "margin-top:0" }, "Log in met je Google-account (hetzelfde als op de leraarspagina)."),
+        el("button", { class: "primary", onclick: async () => {
+          try { await A.signInWithPopup(auth, new A.GoogleAuthProvider()); }
+          catch (e) { if (/popup|operation-not-supported|web-storage/.test(e.code || "")) A.signInWithRedirect(auth, new A.GoogleAuthProvider()); else toast(e.message); }
+        } }, "Inloggen met Google")));
+      try { await reload(); }
+      catch (e) {
+        if (e.code === "permission-denied") screen(el("p", { class: "error" }, "Geen toegang met " + u.email + ". Deze pagina is alleen voor Ben."),
+          el("button", { onclick: () => A.signOut(auth) }, "Ander account"));
+        else screen(el("p", { class: "error" }, "Fout bij laden: " + e.message));
+      }
+    });
+  } catch (e) {
+    screen(el("p", { class: "error" }, "Laden mislukt (" + e.message + "). Geen internet? Probeer ", el("a", { href: "?demo" }, "de demo"), "."));
+  }
+})();
+
+// ================= demo song =================
+// An original exercise (not a real song), so the demo has something to click.
+function exampleSong() { return {
+  artist: "Voorbeeld", title: "Powerchord-rock (oefenliedje)", tuning: "Standaard", capo: 0, bpm: 120,
+  notes: "Demo. Tik op 📌 Oefenen bij een stuk; het komt dan bovenaan.",
+  ug: "", video: "", created: 1, updated: 1,
+  tab: [
+    "[Intro]",
+    "e|-----------------|-----------------|",
+    "B|-----------------|-----------------|",
+    "G|-----------------|-----------------|",
+    "D|-----------------|-----------------|",
+    "A|-2-2-2-2-2-2-2-2-|-5-5-5-5-3-3-3-3-|",
+    "E|-0-0-0-0-0-0-0-0-|-3-3-3-3-1-1-1-1-|",
+    "",
+    "[Riff 1]",
+    "e|-------------------|-------------------|",
+    "B|-------------------|-------------------|",
+    "G|-------------------|-------------------|",
+    "D|-------------------|-------------------|",
+    "A|-------2---2-------|-------2---5-3-----|",
+    "E|-0-0-3---0---0-0-3-|-0-0-3---0-------0-|",
+    "",
+    "[Chorus]",
+    "G5          D5          E5     C5",
+    "Hier komt de tekst van het refrein",
+    "",
+    "[Riff 2]",
+    "e|-------------------|",
+    "B|-------------------|",
+    "G|-------7-5---------|",
+    "D|---5-7-----7-5-----|",
+    "A|-7-------------7-5-|",
+    "E|-------------------|",
+    "",
+    "[Chorus]"
+  ].join("\n"),
+  sections: { "riff-1": { pin: true, tempos: [70, 90, 120] }, "intro": { done: true } }
+}; }
+</script>
+</body>
+</html>
